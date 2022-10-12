@@ -6,7 +6,7 @@ pub struct AsciiPlugin;
 
 impl Plugin for AsciiPlugin{
     fn build(&self, app: &mut App) {
-        app.add_startup_system(load_ascii);
+        app.add_startup_system_to_stage(StartupStage::PreStartup, load_ascii);
     }
 }
 
@@ -26,6 +26,7 @@ pub fn load_ascii(
         );
 
     let atlas_handle = texture_atlases.add(atlas);
+    println!("loaded ascii texture atlas");
     commands.insert_resource(AsciiSheet(atlas_handle))
 }
 

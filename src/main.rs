@@ -1,5 +1,8 @@
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode};
 
+mod components;
+use components::CameraFlag;
+
 mod ascii;
 use ascii::AsciiPlugin;
 
@@ -17,8 +20,8 @@ fn main() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .add_plugin(AsciiPlugin)
         .add_plugin(PlayerPlugin)
+        .add_plugin(AsciiPlugin)
         .add_startup_system(spawn_camera)
         .run();
 }
@@ -28,5 +31,6 @@ fn spawn_camera(mut commands: Commands) {
 
     camera.projection.scaling_mode = ScalingMode::WindowSize;
 
-    commands.spawn_bundle(camera);
+    commands.spawn_bundle(camera)
+        .insert(CameraFlag);
 }
