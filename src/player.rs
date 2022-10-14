@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{Player, CameraFlag},
+    components::{CameraFlag, Player},
 };
 
 pub struct PlayerPlugin;
@@ -23,9 +23,13 @@ fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         Vec3::new(0.0, 0.0, 100.0),
         15.0,
     );
-    commands.entity(player)
+    commands
+        .entity(player)
         .insert(Name::new("Player"))
-        .insert(Player{speed: 80.0, health: 100});
+        .insert(Player {
+            speed: 80.0,
+            health: 100,
+        });
 }
 
 pub struct MoveDirections {
@@ -42,12 +46,12 @@ fn player_controller(
 ) {
     let (player, mut transform) = query.single_mut();
 
-    let move_directions= MoveDirections {
+    let move_directions = MoveDirections {
         up: Vec3::new(0.0, player.speed * time.delta_seconds(), 0.0),
         down: Vec3::new(0.0, player.speed * time.delta_seconds() * -1.0, 0.0),
         left: Vec3::new((player.speed * time.delta_seconds()) * -1.0, 0.0, 0.0),
         right: Vec3::new(player.speed * time.delta_seconds(), 0.0, 0.0),
-        };
+    };
 
     let mut move_vector = Vec3::splat(0.0);
 
@@ -60,24 +64,21 @@ fn player_controller(
 
     if keys.pressed(KeyCode::A) {
         move_vector += move_directions.left;
-    } 
+    }
     if keys.pressed(KeyCode::D) {
         move_vector += move_directions.right;
     }
 
     move_vector = Vec3::clamp_length(move_vector, 0.0, player.speed);
     transform.translation += move_vector;
-
 }
 
 fn camera_follow(
     mut camera_query: Query<&mut Transform, With<CameraFlag>>,
     mut player_query: Query<&Transform, With<Player>>,
 ) {
-    
     let mut camera_transform = camera_query.single_mut();
-    let player_transform = player_query.single_mut();;
+    let player_transform = player_query.single_mut();
 
     camera_transform.translation = player_transform.translation;
 }
-

@@ -4,7 +4,7 @@ pub struct AsciiSheet(Handle<TextureAtlas>);
 
 pub struct AsciiPlugin;
 
-impl Plugin for AsciiPlugin{
+impl Plugin for AsciiPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system_to_stage(StartupStage::PreStartup, load_ascii);
     }
@@ -23,7 +23,7 @@ pub fn load_ascii(
         16,
         Vec2::splat(2.0),
         Vec2::splat(0.0),
-        );
+    );
 
     let atlas_handle = texture_atlases.add(atlas);
     println!("loaded ascii texture atlas");
@@ -47,11 +47,11 @@ pub fn spawn_ascii_sprite(
         .spawn_bundle(SpriteSheetBundle {
             sprite,
             texture_atlas: ascii.0.clone(),
-            transform: Transform{
+            transform: Transform {
                 translation,
                 ..default()
             },
             ..default()
-        }).id()
+        })
+        .id()
 }
-

@@ -6,6 +6,9 @@ use components::CameraFlag;
 mod ascii;
 use ascii::AsciiPlugin;
 
+mod tilemap;
+use tilemap::TileMapPlugin;
+
 mod player;
 use player::PlayerPlugin;
 
@@ -22,6 +25,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(PlayerPlugin)
         .add_plugin(AsciiPlugin)
+        .add_plugin(TileMapPlugin)
         .add_startup_system(spawn_camera)
         .run();
 }
