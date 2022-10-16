@@ -10,7 +10,8 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(spawn_player)
-            .add_system(player_controller);
+            .add_system(player_controller)
+            .add_system(camera_follow);
     }
 }
 
@@ -74,7 +75,7 @@ fn player_controller(
 }
 
 fn camera_follow(
-    mut camera_query: Query<&mut Transform, With<CameraFlag>>,
+    mut camera_query: Query<&mut Transform, (Without<Player>, With<CameraFlag>)>,
     mut player_query: Query<&Transform, With<Player>>,
 ) {
     let mut camera_transform = camera_query.single_mut();

@@ -1,6 +1,8 @@
 use std::{
+    env,
     fs::File,
     io::{BufRead, BufReader},
+    path::Path,
 };
 
 use glob::{glob_with, MatchOptions};
@@ -9,147 +11,102 @@ use rand::prelude::*;
 
 use bevy::prelude::*;
 
-use crate::ascii::spawn_ascii_sprite;
+use crate::{
+    ascii::{spawn_ascii_sprite, AsciiSheet},
+    TILE_SIZE,
+};
+
+pub const MAP_BLOCK_X: f32 = 32.0 * TILE_SIZE;
+pub const MAP_BLOCK_Y: f32 = 16.0 * TILE_SIZE;
 
 pub struct TileMapPlugin;
 
 impl Plugin for TileMapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(gen_map);
+        app.add_startup_system(generate_map);
     }
-}
-
-pub fn read_last_map_block(blocks: &mut Vec<MapBlock>) -> Vec2 {
-    let last_index = &blocks.len();
-    println!("num of map blocks placed: {}", last_index);
-    let last_block = &blocks[last_index - 1];
-
-    return Vec2::new(last_block.x, last_block.y);
 }
 
 fn map_gen_manager() {}
 
 pub struct MapBlock {
-    x: f32,
-    y: f32,
+    x: i32,
+    y: i32,
     block_id: String,
     entrance: bool,
     exit: bool,
+    tiles: Vec<Entity>,
 }
 
-fn gen_map() {
-    let map_size: f32 = 4.0;
-    let map_size_int: i32 = map_size.ceil() as i32;
-    let mut rng = rand::thread_rng();
+// simplified map generation system because the last one was ridiculous
+fn generate_map(mut commands: Commands, ascii: Res<AsciiSheet>) {
+    let map_size = 3;
 
-    let mut top_open: Vec<String> = Vec::new();
-    let mut bottom_open: Vec<String> = Vec::new();
-    let mut left_open: Vec<String> = Vec::new();
-    let mut right_open: Vec<String> = Vec::new();
+    let mut map_blocks: Vec<MapBlock> = Vec::new();
+
+    let mut map_block_ids: Vec<String> = Vec::new();
 
     let options = MatchOptions {
         case_sensitive: false,
         require_literal_separator: false,
         require_literal_leading_dot: false,
     };
-
-    // generate vectors of map blocks
-    for entry in glob_with("../map_blocks/*a*", options)
-        .unwrap()
-        .filter_map(Result::ok)
-    {
-        let map_block = entry.display();
-        top_open.push(map_block.to_string());
-        bottom_open.push(map_block.to_string());
-        left_open.push(map_block.to_string());
-        right_open.push(map_block.to_string());
+    for entry in glob_with("../map_blocks/m*b", options).unwrap() {
+        if let Ok(path) = entry {
+            map_block_ids.push(path.display().to_string());
+            println!("{:?}", path.display().to_string());
+        }
     }
 
-    // generate a route through the map from the entrance to the exit
-
-    let mut exit_route: Vec<MapBlock> = Vec::new();
-    let start_position: MapBlock = MapBlock {
-        x: 0.0,
-        y: 0.0,
-        block_id: "mb_udlra".to_string(),
-        entrance: true,
-        exit: false,
-    };
-    exit_route.push(start_position);
-
-    // find a valid block to add to the route
-    let mut exit_route_found = false;
-    while exit_route_found == false {
-        println!("\n\nlooping again");
-        let direction = rng.gen_range(1..4);
-        let mut direction_vector = Vec2::new(0.0, 0.0);
-
-        match direction {
-            1 => direction_vector = Vec2::new(1.0, 0.0),
-            2 => direction_vector = Vec2::new(-1.0, 0.0),
-            3 => direction_vector = Vec2::new(0.0, -1.0),
-            4 => direction_vector = Vec2::new(0.0, 1.0),
-            _ => println!(
-                "there's something weird happening with direction calulation in gen_map..."
-            ),
-        }
-        let mut chosen_position = read_last_map_block(&mut exit_route);
-        chosen_position = chosen_position + direction_vector;
-        println!("position chosen: {}", chosen_position);
-
-        // check to see if the direction chosen to expand the exit route in doesn't step on any
-        // previously placed blocks and that it isn't out of bounds
-        let mut map_block_chosen_ok: bool = true;
-
-        for placed_block in exit_route.iter() {
-            println!(
-                "\ncomparison\nplaced block: {}, {}\nrandom position: {}, {}\n",
-                placed_block.x, placed_block.y, chosen_position[0], chosen_position[1],
-            );
-            if placed_block.x.round() == chosen_position[0].round()
-                && placed_block.y.round() == chosen_position[1].round()
-            {
-                map_block_chosen_ok = false;
-            }
-        }
-        // .push the block if the location is not on top of any others
-        if map_block_chosen_ok == true {
-            let mut map_block = MapBlock {
-                x: chosen_position[0],
-                y: chosen_position[1],
-                block_id: "mb_udlra".to_string(),
+    // doing this in columns not rows
+    for x in -map_size..map_size {
+        for y in -map_size..map_size {
+            let map_block = MapBlock {
+                x: x - map_size,
+                y: y - map_size,
+                block_id: "mb_udlra.txt".to_string(),
+                // blocks randomly
                 entrance: false,
                 exit: false,
+                tiles: Vec::new(),
             };
+            map_blocks.push(map_block);
+        }
+    }
 
-            // determine whether the placed map block should be an exit
-            // and whether or not the route is finished or not
-            if chosen_position[0] >= map_size
-                || chosen_position[1] >= map_size
-                || chosen_position[0] <= -map_size
-                || chosen_position[1] <= -map_size
-            {
-                let coin_flip = rng.gen_bool(1.0 / 2.0);
-                if coin_flip {
-                    map_block.exit = true;
-                    exit_route.push(map_block);
-                    println!("pushed map block, exit route found");
-                    println!("\nmap block summary: ");
-                    for map_block in exit_route.iter() {
-                        println!("{}{}", map_block.x, map_block.y);
+    draw_map_blocks(commands, ascii, map_blocks);
+}
+
+fn draw_map_blocks(mut commands: Commands, ascii: Res<AsciiSheet>, map_blocks: Vec<MapBlock>) {
+    for mut map_block in map_blocks {
+        let map_file = File::open("/home/thisdot/dev/rust/piko/map_blocks/mb_udlra.txt")
+            .expect("Map file not found");
+
+        // iterate through all the characters in the map block file
+        for (y, line) in BufReader::new(map_file).lines().enumerate() {
+            if let Ok(line) = line {
+                for (x, char) in line.chars().enumerate() {
+                    if char == '.' {
+                    } else {
+                        let tile_translation = Vec3::new(
+                            MAP_BLOCK_X * map_block.x as f32 + x as f32 * TILE_SIZE,
+                            MAP_BLOCK_Y * map_block.y as f32 + (y as f32) * TILE_SIZE,
+                            1.0,
+                        );
+
+                        let tile = spawn_ascii_sprite(
+                            &mut commands,
+                            &ascii,
+                            char as usize,
+                            Color::rgb_u8(255, 255, 255),
+                            tile_translation,
+                            TILE_SIZE,
+                        );
+
+                        map_block.tiles.push(tile);
                     }
-                    break;
-                } else {
-                    exit_route.push(map_block);
-                    println!("pushed map block\n\n");
                 }
-            } else {
-                exit_route.push(map_block);
-                println!("pushed map block\n\n");
             }
         }
     }
-    // fill in the rest of the map with random tiles
 }
-
-fn gen_map_block(map_blocks: Vec<MapBlock>) {}
