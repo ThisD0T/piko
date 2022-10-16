@@ -1,5 +1,7 @@
 use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode};
 
+mod lib;
+
 mod components;
 use components::CameraFlag;
 
@@ -35,6 +37,5 @@ fn spawn_camera(mut commands: Commands) {
 
     camera.projection.scaling_mode = ScalingMode::WindowSize;
 
-    commands.spawn_bundle(camera)
-        .insert(CameraFlag);
+    commands.spawn_bundle(camera).insert(CameraFlag);
 }
