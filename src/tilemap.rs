@@ -122,17 +122,38 @@ fn draw_map_blocks(mut commands: Commands, ascii: Res<AsciiSheet>, map_blocks: V
             }
         }
 
-        let map_size_in_tiles: f32 = ((((map_size as f32) * 2.0) + 1.0) / TILE_SIZE).round();
+        let map_border_size_in_tiles: i32 = ((((map_size as f32) * 2.0) + 1.0) / TILE_SIZE).round() as i32;
+        let map_border_size_f32: f32 = map_border_size_in_tiles as f32 * TILE_SIZE;
 
-        let mut map = commands.spawn_bundle(SpatialBundle {
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 0.0),
-                ..default()
-            },
-            global_transform: GlobalTransform::default(),
-            ..default()
-        });
+        for i in 0..map_border_size_in_tiles {
+            println!("spawning border tile");
+            let tile_translation = Vec3::new((i as f32 * TILE_SIZE) - map_border_size_f32 / 2.0, map_border_size_f32 / 2.0, 0.0);
+            let border_tile = spawn_ascii_sprite(
+                &mut commands,
+                &ascii,
+                4,
+                Color::rgb_u8(255, 255, 255),
+                tile_translation,
+                TILE_SIZE,
+                );
 
-        map.push_children(&tiles);
+            commands.entity(border_tile).insert(Name::new("Border Tile"));
+
+            tiles.push(border_tile);
+        }
+        
+
     }
+    let mut map = commands.spawn_bundle(SpatialBundle {
+        transform: Transform {
+            translation: Vec3::new(0.0, 0.0, 0.0),
+            ..default()
+        },
+        global_transform: GlobalTransform::default(),
+        ..default()
+    });
+
+    map.insert(Name::new("Map"));
+
+    map.push_children(&tiles);
 }
