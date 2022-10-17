@@ -1,6 +1,11 @@
-use bevy::{prelude::*, render::camera::ScalingMode, window::WindowMode};
+use bevy::{
+    prelude::*, render::camera::ScalingMode, render::texture::ImageSettings, window::WindowMode,
+};
 
 mod lib;
+
+mod debug;
+use crate::debug::DebugPlugin;
 
 mod components;
 use components::CameraFlag;
@@ -14,17 +19,19 @@ use tilemap::TileMapPlugin;
 mod player;
 use player::PlayerPlugin;
 
-pub const TILE_SIZE: f32 = 15.0;
+pub const TILE_SIZE: f32 = 30.0;
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb_u8(0, 0, 0)))
+        .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
         .insert_resource(WindowDescriptor {
             title: "Piko".to_string(),
             mode: WindowMode::Fullscreen,
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
+        .add_plugin(DebugPlugin)
         .add_plugin(PlayerPlugin)
         .add_plugin(AsciiPlugin)
         .add_plugin(TileMapPlugin)

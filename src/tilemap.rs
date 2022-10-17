@@ -17,7 +17,7 @@ use crate::{
 };
 
 pub const MAP_BLOCK_X: f32 = 32.0 * TILE_SIZE;
-pub const MAP_BLOCK_Y: f32 = 16.0 * TILE_SIZE;
+pub const MAP_BLOCK_Y: f32 = 32.0 * TILE_SIZE;
 
 pub struct TileMapPlugin;
 
@@ -51,11 +51,12 @@ fn generate_map(mut commands: Commands, ascii: Res<AsciiSheet>) {
         require_literal_separator: false,
         require_literal_leading_dot: false,
     };
-    for entry in glob_with("../map_blocks/m*b", options).unwrap() {
+    for entry in glob_with("../m?_", options).unwrap() {
         if let Ok(path) = entry {
             map_block_ids.push(path.display().to_string());
             println!("{:?}", path.display().to_string());
         }
+        println!("compiling map block files");
     }
 
     // doing this in columns not rows
@@ -64,7 +65,7 @@ fn generate_map(mut commands: Commands, ascii: Res<AsciiSheet>) {
             let map_block = MapBlock {
                 x: x - map_size,
                 y: y - map_size,
-                block_id: "mb_udlra.txt".to_string(),
+                block_id: "/home/thisdot/dev/rust/piko/map_blocks/mb_udlra.txt".to_string(),
                 // blocks randomly
                 entrance: false,
                 exit: false,
@@ -78,15 +79,24 @@ fn generate_map(mut commands: Commands, ascii: Res<AsciiSheet>) {
 }
 
 fn draw_map_blocks(mut commands: Commands, ascii: Res<AsciiSheet>, map_blocks: Vec<MapBlock>) {
-    for mut map_block in map_blocks {
-        let map_file = File::open("/home/thisdot/dev/rust/piko/map_blocks/mb_udlra.txt")
-            .expect("Map file not found");
+    let mut tiles = Vec::new();
+
+    let mut enemies = Vec::new();
+
+    for map_block in map_blocks {
+        let map_file = File::open(map_block.block_id).expect("Map file not found");
 
         // iterate through all the characters in the map block file
         for (y, line) in BufReader::new(map_file).lines().enumerate() {
             if let Ok(line) = line {
                 for (x, char) in line.chars().enumerate() {
+                    // spawn the walls and entities in the map block according the the text file
+                    // that defines it
+
                     if char == '.' {
+                    } else if char == '7' {
+                        let enemy_7 = commands.spawn().id();
+                        enemies.push(enemy_7);
                     } else {
                         let tile_translation = Vec3::new(
                             MAP_BLOCK_X * map_block.x as f32 + x as f32 * TILE_SIZE,
@@ -103,10 +113,21 @@ fn draw_map_blocks(mut commands: Commands, ascii: Res<AsciiSheet>, map_blocks: V
                             TILE_SIZE,
                         );
 
-                        map_block.tiles.push(tile);
+                        tiles.push(tile);
                     }
                 }
             }
         }
+
+        let mut map = commands.spawn_bundle(SpatialBundle {
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 0.0),
+                ..default()
+            },
+            global_transform: GlobalTransform::default(),
+            ..default()
+        });
+
+        map.push_children(&tiles);
     }
 }

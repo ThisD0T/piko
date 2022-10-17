@@ -3,7 +3,10 @@ use bevy::prelude::*;
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
     components::{CameraFlag, Player},
+    TILE_SIZE,
 };
+
+use crate::tilemap::{MAP_BLOCK_X, MAP_BLOCK_Y};
 
 pub struct PlayerPlugin;
 
@@ -21,14 +24,14 @@ fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         &ascii,
         3,
         Color::rgb(0.1, 0.7, 0.4),
-        Vec3::new(0.0, 0.0, 100.0),
-        15.0,
+        Vec3::new(MAP_BLOCK_X * -4.0, MAP_BLOCK_Y * -4.0, 100.0),
+        TILE_SIZE,
     );
     commands
         .entity(player)
         .insert(Name::new("Player"))
         .insert(Player {
-            speed: 80.0,
+            speed: 180.0,
             health: 100,
         });
 }
