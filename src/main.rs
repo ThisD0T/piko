@@ -19,7 +19,7 @@ use tilemap::TileMapPlugin;
 mod player;
 use player::PlayerPlugin;
 
-pub const TILE_SIZE: f32 = 30.0;
+pub const TILE_SIZE: f32 = 10.0;
 
 fn main() {
     App::new()
