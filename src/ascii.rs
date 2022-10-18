@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+
 pub struct AsciiSheet(Handle<TextureAtlas>);
 
 pub struct AsciiPlugin;

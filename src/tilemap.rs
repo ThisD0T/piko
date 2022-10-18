@@ -14,7 +14,9 @@ use bevy::prelude::*;
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
     TILE_SIZE,
+    components:: TileCollider,
 };
+
 
 pub const MAP_BLOCK_X: f32 = 32.0 * TILE_SIZE;
 pub const MAP_BLOCK_Y: f32 = 32.0 * TILE_SIZE;
@@ -100,15 +102,11 @@ fn draw_map_blocks(
                     // spawn the walls and entities in the map block according the the text file
                     // that defines it
 
-                    if char == '.' {
-                    } else if char == '7' {
-                        // let enemy_7 = commands.spawn().id();
-                        // enemies.push(enemy_7);
-                    } else {
+                    if char == '#' {
                         let tile_translation = Vec3::new(
-                            (MAP_BLOCK_X * map_block.x as f32 + x as f32 * TILE_SIZE)
+                            (MAP_BLOCK_X * 0.98 * map_block.x as f32 + x as f32 * TILE_SIZE * 0.98)
                                 + half_block_size as f32,
-                            (MAP_BLOCK_Y * map_block.y as f32 + (y as f32) * TILE_SIZE)
+                            (MAP_BLOCK_Y * 0.98 * map_block.y as f32 + (y as f32) * TILE_SIZE * 0.98)
                                 + half_block_size as f32,
                             1.0,
                         );
@@ -116,13 +114,17 @@ fn draw_map_blocks(
                         let tile = spawn_ascii_sprite(
                             &mut commands,
                             &ascii,
-                            char as usize,
+                            0,
                             Color::rgb_u8(255, 255, 255),
                             tile_translation,
                             TILE_SIZE,
                         );
 
+                        commands.entity(tile).insert(TileCollider);
+
                         tiles.push(tile);
+                    } else {
+
                     }
                 }
             }
@@ -131,17 +133,21 @@ fn draw_map_blocks(
     let map_border_size: f32 = (((map_size as f32) * 2.0) + 1.0) * MAP_BLOCK_X;
     let map_border_size_in_tiles: i32 = map_border_size as i32 / TILE_SIZE as i32;
 
+    let map_block_adjust = MAP_BLOCK_X * 0.02;
+
+    // top border
     for i in 0..map_border_size_in_tiles {
+        println!("{}", map_block_adjust);
         let tile_translation = Vec3::new(
-            (i as f32 * TILE_SIZE) - map_border_size / 2.0,
-            map_border_size / 2.0,
+            (i as f32 * TILE_SIZE * 0.98) - map_border_size / 2.0 + map_block_adjust,
+            map_border_size / 2.0 * 0.98,
             0.0,
         );
         println!("{}", i);
         let border_tile = spawn_ascii_sprite(
             &mut commands,
             &ascii,
-            220,
+            0,
             Color::rgb_u8(255, 255, 255),
             tile_translation,
             TILE_SIZE,
@@ -153,6 +159,81 @@ fn draw_map_blocks(
 
         tiles.push(border_tile);
     }
+
+    // left border
+    for i in 0..map_border_size_in_tiles {
+        let tile_translation = Vec3::new(
+            -map_border_size * 0.98 / 2.0,
+            (i as f32 * (TILE_SIZE * 0.98)) - map_border_size / 2.0,
+            0.0
+            );
+
+        let border_tile = spawn_ascii_sprite (
+            &mut commands,
+            &ascii,
+            0,
+            Color::rgb_u8(255, 255, 255),
+            tile_translation,
+            TILE_SIZE,
+            );
+
+        commands
+            .entity(border_tile)
+            .insert(Name::new("Left Border Tile"));
+
+        tiles.push(border_tile);
+
+    }
+
+    // right border
+    for i in 0..map_border_size_in_tiles {
+        let tile_translation = Vec3::new(
+            map_border_size / 2.0 * 0.98,
+            (i as f32 * TILE_SIZE * 0.98) - map_border_size / 2.0,
+            0.0,
+            );
+
+        let border_tile = spawn_ascii_sprite(
+            &mut commands,
+            &ascii,
+            0,
+            Color::rgb_u8(255, 255, 255),
+            tile_translation,
+            TILE_SIZE,
+            );
+
+        commands
+            .entity(border_tile)
+            .insert(Name::new("Right Border Tile"));
+
+        tiles.push(border_tile);
+    }
+
+    // down border
+    for i in 0..map_border_size_in_tiles {
+        println!("{}", map_block_adjust);
+        let tile_translation = Vec3::new(
+            (i as f32 * TILE_SIZE * 0.98) - map_border_size / 2.0 + map_block_adjust,
+            -map_border_size / 2.0 * 0.98,
+            0.0,
+        );
+        println!("{}", i);
+        let border_tile = spawn_ascii_sprite(
+            &mut commands,
+            &ascii,
+            0,
+            Color::rgb_u8(255, 255, 255),
+            tile_translation,
+            TILE_SIZE,
+        );
+
+        commands
+            .entity(border_tile)
+            .insert(Name::new("Border Tile"));
+
+        tiles.push(border_tile);
+    }
+
     let mut map = commands.spawn_bundle(SpatialBundle {
         transform: Transform {
             translation: Vec3::new(0.0, 0.0, 0.0),

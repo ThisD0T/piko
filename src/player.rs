@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{CameraFlag, Player},
+    components::{CameraFlag, Player, TileCollider},
     TILE_SIZE,
 };
 
@@ -45,6 +45,7 @@ pub struct MoveDirections {
 
 fn player_controller(
     mut query: Query<(&Player, &mut Transform), With<Player>>,
+    mut tile_query: Query<&Transform, With<TileCollider>>,
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {

@@ -9,3 +9,5 @@ pub struct Player {
 #[derive(Component)]
 pub struct CameraFlag;
 
+#[derive(Component)]
+pub struct TileCollider;
