@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-
 pub struct AsciiSheet(Handle<TextureAtlas>);
 
 pub struct AsciiPlugin;
@@ -37,12 +36,12 @@ pub fn spawn_ascii_sprite(
     sprite_index: usize,
     color: Color,
     translation: Vec3,
-    size: f32,
+    size: Vec2,
 ) -> Entity {
     let mut sprite = TextureAtlasSprite::new(sprite_index);
     sprite.color = color;
 
-    sprite.custom_size = Some(Vec2::splat(size));
+    sprite.custom_size = Some(size);
 
     commands
         .spawn_bundle(SpriteSheetBundle {

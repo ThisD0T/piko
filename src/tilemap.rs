@@ -13,10 +13,10 @@ use bevy::prelude::*;
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
+    components::TileCollider,
+    gameobject::spawn_runner_enemy,
     TILE_SIZE,
-    components:: TileCollider,
 };
-
 
 pub const MAP_BLOCK_X: f32 = 32.0 * TILE_SIZE;
 pub const MAP_BLOCK_Y: f32 = 32.0 * TILE_SIZE;
@@ -40,12 +40,18 @@ pub struct MapBlock {
     tiles: Vec<Entity>,
 }
 
+fn random_map_id(id_list: &Vec<String>) -> String {
+    let mut rng = rand::thread_rng();
+    return id_list.choose(&mut rng).unwrap().to_string();
+}
+
 // simplified map generation system because the last one was ridiculous
 fn generate_map(mut commands: Commands, ascii: Res<AsciiSheet>) {
-    let map_size = 3;
+    let mut rng = thread_rng();
 
+    let map_size = 2;
     let mut map_blocks: Vec<MapBlock> = Vec::new();
-
+    let mut potential_exits: Vec<MapBlock> = Vec::new();
     let mut map_block_ids: Vec<String> = Vec::new();
 
     let options = MatchOptions {
@@ -60,19 +66,47 @@ fn generate_map(mut commands: Commands, ascii: Res<AsciiSheet>) {
         }
     }
 
+    for id in map_block_ids.iter() {
+        println!("{}", id);
+    }
+
     // doing this in columns not rows
     for x in -map_size..map_size + 1 {
         for y in -map_size..map_size + 1 {
-            let map_block = MapBlock {
+            let map_id = random_map_id(&map_block_ids);
+
+            let mut map_block = MapBlock {
                 x: x - map_size / 2,
                 y: y - map_size / 2,
-                block_id: "/home/thisdot/dev/rust/piko/map_blocks/mb_udlra.txt".to_string(),
+                block_id: map_id,
                 // blocks randomly
                 entrance: false,
                 exit: false,
                 tiles: Vec::new(),
             };
-            map_blocks.push(map_block);
+
+            if x == 0 && y == 0 {
+                map_block.entrance = true;
+            }
+
+            if map_block.x == map_size
+                || map_block.x == -map_size
+                || map_block.y == map_size
+                || map_block.y == -map_size
+            {
+                potential_exits.push(map_block);
+            } else {
+                map_blocks.push(map_block);
+            }
+        }
+    }
+    // grab a random exit and then concatenate both of the vectors of map blocks
+    potential_exits.choose_mut(&mut rng).unwrap().block_id = "map_blocks/exit.txt".to_string();
+    map_blocks.append(&mut potential_exits);
+
+    for mut map_block in map_blocks.iter_mut() {
+        if map_block.entrance {
+            map_block.block_id = "map_blocks/entrance.txt".to_string();
         }
     }
 
@@ -85,6 +119,8 @@ fn draw_map_blocks(
     map_blocks: Vec<MapBlock>,
     map_size: i32,
 ) {
+    let mut rng = rand::thread_rng();
+
     let mut tiles = Vec::new();
 
     let mut enemies: Vec<Entity> = Vec::new();
@@ -106,7 +142,8 @@ fn draw_map_blocks(
                         let tile_translation = Vec3::new(
                             (MAP_BLOCK_X * 0.98 * map_block.x as f32 + x as f32 * TILE_SIZE * 0.98)
                                 + half_block_size as f32,
-                            (MAP_BLOCK_Y * 0.98 * map_block.y as f32 + (y as f32) * TILE_SIZE * 0.98)
+                            (MAP_BLOCK_Y * 0.98 * map_block.y as f32
+                                + (y as f32) * TILE_SIZE * 0.98)
                                 + half_block_size as f32,
                             1.0,
                         );
@@ -117,14 +154,63 @@ fn draw_map_blocks(
                             0,
                             Color::rgb_u8(255, 255, 255),
                             tile_translation,
-                            TILE_SIZE,
+                            Vec2::splat(TILE_SIZE),
                         );
 
-                        commands.entity(tile).insert(TileCollider);
+                        commands.entity(tile).insert(TileCollider {
+                            size: Vec2::splat(TILE_SIZE),
+                        });
 
                         tiles.push(tile);
-                    } else {
+                    } else if char == 'E' {
+                        let tile_translation = Vec3::new(
+                            (MAP_BLOCK_X * 0.98 * map_block.x as f32 + x as f32 * TILE_SIZE * 0.98)
+                                + half_block_size as f32,
+                            (MAP_BLOCK_Y * 0.98 * map_block.y as f32
+                                + (y as f32) * TILE_SIZE * 0.98)
+                                + half_block_size as f32,
+                            1.0,
+                        );
 
+                        let tile = spawn_ascii_sprite(
+                            &mut commands,
+                            &ascii,
+                            char as usize,
+                            Color::rgb_u8(255, 255, 255),
+                            tile_translation,
+                            Vec2::splat(TILE_SIZE),
+                        );
+
+                        commands.entity(tile).insert(TileCollider {
+                            size: Vec2::splat(TILE_SIZE),
+                        });
+
+                        tiles.push(tile);
+                    } else if char == '7' {
+                        if rng.gen_bool(1.0 / 2.0) {
+                            let tile_translation = Vec3::new(
+                                (MAP_BLOCK_X * 0.98 * map_block.x as f32
+                                    + x as f32 * TILE_SIZE * 0.98)
+                                    + half_block_size as f32,
+                                (MAP_BLOCK_Y * 0.98 * map_block.y as f32
+                                    + (y as f32) * TILE_SIZE * 0.98)
+                                    + half_block_size as f32,
+                                1.0,
+                            );
+
+                            let enemy_7 = spawn_runner_enemy(
+                                &mut commands,
+                                &ascii,
+                                4,
+                                Color::rgb_u8(255, 255, 255),
+                                tile_translation,
+                                Vec2::splat(TILE_SIZE),
+                                1.0,
+                                TILE_SIZE * 32.0,
+                                15.0,
+                            );
+                        }
+                    } else {
                     }
                 }
             }
@@ -136,103 +222,66 @@ fn draw_map_blocks(
     let map_block_adjust = MAP_BLOCK_X * 0.02;
 
     // top border
-    for i in 0..map_border_size_in_tiles {
-        println!("{}", map_block_adjust);
-        let tile_translation = Vec3::new(
-            (i as f32 * TILE_SIZE * 0.98) - map_border_size / 2.0 + map_block_adjust,
-            map_border_size / 2.0 * 0.98,
-            0.0,
-        );
-        println!("{}", i);
-        let border_tile = spawn_ascii_sprite(
-            &mut commands,
-            &ascii,
-            0,
-            Color::rgb_u8(255, 255, 255),
-            tile_translation,
-            TILE_SIZE,
-        );
+    let mut tile_translation = Vec3::new(0.0, map_border_size / 2.0 * 0.98, 0.0);
+    let mut tile_size = Vec2::new(map_border_size * 0.98, TILE_SIZE);
+    let top_border = spawn_ascii_sprite(
+        &mut commands,
+        &ascii,
+        0,
+        Color::rgb_u8(255, 255, 255),
+        tile_translation,
+        tile_size,
+    );
+    commands
+        .entity(top_border)
+        .insert(TileCollider { size: tile_size })
+        .insert(Name::new("Top Border"));
 
-        commands
-            .entity(border_tile)
-            .insert(Name::new("Border Tile"));
-
-        tiles.push(border_tile);
-    }
+    // bottom border
+    tile_translation[1] = -tile_translation[1];
+    let bottom_border = spawn_ascii_sprite(
+        &mut commands,
+        &ascii,
+        0,
+        Color::rgb_u8(255, 255, 255),
+        tile_translation,
+        tile_size,
+    );
+    commands
+        .entity(bottom_border)
+        .insert(TileCollider { size: tile_size })
+        .insert(Name::new("Bottom Border"));
 
     // left border
-    for i in 0..map_border_size_in_tiles {
-        let tile_translation = Vec3::new(
-            -map_border_size * 0.98 / 2.0,
-            (i as f32 * (TILE_SIZE * 0.98)) - map_border_size / 2.0,
-            0.0
-            );
-
-        let border_tile = spawn_ascii_sprite (
-            &mut commands,
-            &ascii,
-            0,
-            Color::rgb_u8(255, 255, 255),
-            tile_translation,
-            TILE_SIZE,
-            );
-
-        commands
-            .entity(border_tile)
-            .insert(Name::new("Left Border Tile"));
-
-        tiles.push(border_tile);
-
-    }
+    tile_translation = Vec3::new(-map_border_size / 2.0 * 0.98, 0.0, 0.0);
+    tile_size = Vec2::new(TILE_SIZE, map_border_size * 0.98);
+    let left_border = spawn_ascii_sprite(
+        &mut commands,
+        &ascii,
+        0,
+        Color::rgb_u8(255, 255, 255),
+        tile_translation,
+        tile_size,
+    );
+    commands
+        .entity(left_border)
+        .insert(TileCollider { size: tile_size })
+        .insert(Name::new("Left Border"));
 
     // right border
-    for i in 0..map_border_size_in_tiles {
-        let tile_translation = Vec3::new(
-            map_border_size / 2.0 * 0.98,
-            (i as f32 * TILE_SIZE * 0.98) - map_border_size / 2.0,
-            0.0,
-            );
-
-        let border_tile = spawn_ascii_sprite(
-            &mut commands,
-            &ascii,
-            0,
-            Color::rgb_u8(255, 255, 255),
-            tile_translation,
-            TILE_SIZE,
-            );
-
-        commands
-            .entity(border_tile)
-            .insert(Name::new("Right Border Tile"));
-
-        tiles.push(border_tile);
-    }
-
-    // down border
-    for i in 0..map_border_size_in_tiles {
-        println!("{}", map_block_adjust);
-        let tile_translation = Vec3::new(
-            (i as f32 * TILE_SIZE * 0.98) - map_border_size / 2.0 + map_block_adjust,
-            -map_border_size / 2.0 * 0.98,
-            0.0,
-        );
-        println!("{}", i);
-        let border_tile = spawn_ascii_sprite(
-            &mut commands,
-            &ascii,
-            0,
-            Color::rgb_u8(255, 255, 255),
-            tile_translation,
-            TILE_SIZE,
-        );
-
-        commands
-            .entity(border_tile)
-            .insert(Name::new("Border Tile"));
-
-        tiles.push(border_tile);
-    }
+    tile_translation = Vec3::new(map_border_size / 2.0 * 0.98, 0.0, 0.0);
+    let right_border = spawn_ascii_sprite(
+        &mut commands,
+        &ascii,
+        0,
+        Color::rgb_u8(255, 255, 255),
+        tile_translation,
+        tile_size,
+    );
+    commands
+        .entity(right_border)
+        .insert(TileCollider { size: tile_size })
+        .insert(Name::new("Right Border"));
 
     let mut map = commands.spawn_bundle(SpatialBundle {
         transform: Transform {
