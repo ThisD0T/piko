@@ -13,9 +13,9 @@ use bevy::prelude::*;
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::TileCollider,
+    components::{Exit, TileCollider},
     gameobject::spawn_runner_enemy,
-    TILE_SIZE,
+    make_new_stage, TILE_SIZE,
 };
 
 pub const MAP_BLOCK_X: f32 = 32.0 * TILE_SIZE;
@@ -25,7 +25,7 @@ pub struct TileMapPlugin;
 
 impl Plugin for TileMapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(generate_map);
+        app.add_startup_system(first_map_gen);
     }
 }
 
@@ -45,8 +45,12 @@ fn random_map_id(id_list: &Vec<String>) -> String {
     return id_list.choose(&mut rng).unwrap().to_string();
 }
 
+fn first_map_gen(mut commands: Commands, mut ascii: Res<AsciiSheet>) {
+    generate_map(&mut commands, &mut ascii);
+}
+
 // simplified map generation system because the last one was ridiculous
-fn generate_map(mut commands: Commands, ascii: Res<AsciiSheet>) {
+pub fn generate_map(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) {
     let mut rng = thread_rng();
 
     let map_size = 2;
@@ -114,8 +118,8 @@ fn generate_map(mut commands: Commands, ascii: Res<AsciiSheet>) {
 }
 
 fn draw_map_blocks(
-    mut commands: Commands,
-    ascii: Res<AsciiSheet>,
+    mut commands: &mut Commands,
+    ascii: &mut Res<AsciiSheet>,
     map_blocks: Vec<MapBlock>,
     map_size: i32,
 ) {
@@ -181,9 +185,7 @@ fn draw_map_blocks(
                             Vec2::splat(TILE_SIZE),
                         );
 
-                        commands.entity(tile).insert(TileCollider {
-                            size: Vec2::splat(TILE_SIZE),
-                        });
+                        commands.entity(tile).insert(Exit);
 
                         tiles.push(tile);
                     } else if char == '7' {
@@ -206,8 +208,9 @@ fn draw_map_blocks(
                                 tile_translation,
                                 Vec2::splat(TILE_SIZE),
                                 1.0,
-                                TILE_SIZE * 32.0,
-                                15.0,
+                                TILE_SIZE * 16.0,
+                                5.0,
+                                1.0,
                             );
                         }
                     } else {

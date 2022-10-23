@@ -5,8 +5,8 @@ use bevy::{
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{CameraFlag, Player, TileCollider},
-    TILE_SIZE,
+    components::{CameraFlag, Exit, Manager, Player, TileCollider},
+    make_new_stage, TILE_SIZE,
 };
 
 use crate::tilemap::{MAP_BLOCK_X, MAP_BLOCK_Y};
@@ -17,11 +17,12 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(spawn_player)
             .add_system(camera_follow)
+            .add_system(player_exit)
             .add_system(player_controller);
     }
 }
 
-fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
+pub fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
     let player = spawn_ascii_sprite(
         &mut commands,
         &ascii,
@@ -113,4 +114,44 @@ fn camera_follow(
     let player_transform = player_query.single_mut();
 
     camera_transform.translation = player_transform.translation;
+}
+
+pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) {
+    let player = spawn_ascii_sprite(
+        &mut commands,
+        &ascii,
+        3,
+        Color::rgb(0.1, 0.7, 0.4),
+        Vec3::new(0.0, 0.0, 100.0),
+        Vec2::splat(TILE_SIZE * 0.98),
+    );
+    commands
+        .entity(player)
+        .insert(Name::new("Player"))
+        .insert(Player {
+            speed: 280.0,
+            health: 100,
+        });
+}
+
+fn player_exit(
+    mut commands: Commands,
+    ascii: Res<AsciiSheet>,
+    entity_query: Query<Entity, Without<Manager>>,
+    player_query: Query<&Transform, With<Player>>,
+    exit_query: Query<&Transform, (With<Exit>, Without<Player>)>,
+) {
+    let player_transform = player_query.single();
+    let exit_transform = exit_query.single();
+
+    println!(
+        "{}",
+        Vec3::distance(player_transform.translation, exit_transform.translation)
+    );
+    if Vec3::distance(player_transform.translation, exit_transform.translation)
+        < (110.0 + TILE_SIZE) * 0.98
+    {
+        println!("making new stage");
+        make_new_stage(commands, ascii, entity_query);
+    }
 }

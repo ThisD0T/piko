@@ -8,19 +8,19 @@ mod debug;
 use crate::debug::DebugPlugin;
 
 mod components;
-use components::CameraFlag;
+use components::{CameraFlag, Manager};
 
 mod gameobject;
 use gameobject::GameObjectPlugin;
 
 mod ascii;
-use ascii::AsciiPlugin;
+use ascii::{AsciiPlugin, AsciiSheet};
 
 mod tilemap;
-use tilemap::TileMapPlugin;
+use tilemap::{generate_map, TileMapPlugin};
 
 mod player;
-use player::PlayerPlugin;
+use player::{respawn_player, PlayerPlugin};
 
 mod enemy;
 use enemy::EnemyPlugin;
@@ -53,4 +53,17 @@ fn spawn_camera(mut commands: Commands) {
     camera.projection.scaling_mode = ScalingMode::WindowSize;
 
     commands.spawn_bundle(camera).insert(CameraFlag);
+}
+
+fn make_new_stage(
+    mut commands: Commands,
+    mut ascii: Res<AsciiSheet>,
+    mut entities_query: Query<Entity, Without<Manager>>,
+) {
+    for entity in entities_query.iter_mut() {
+        commands.entity(entity).despawn();
+    }
+    generate_map(&mut commands, &mut ascii);
+    respawn_player(&mut commands, &mut ascii);
+    spawn_camera(commands);
 }

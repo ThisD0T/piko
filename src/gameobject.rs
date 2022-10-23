@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{Enemy, RunnerEnemy, EnemyFlock},
+    components::{Enemy, EnemyFlock, RunnerEnemy},
 };
 
 pub struct GameObjectPlugin;
@@ -22,7 +22,8 @@ pub fn spawn_base_enemy(
     vision: f32,
 ) -> Entity {
     let enemy = spawn_ascii_sprite(&mut commands, &ascii, sprite_index, color, position, size);
-    commands.entity(enemy)
+    commands
+        .entity(enemy)
         .insert(Enemy {
             health,
             vision,
@@ -43,12 +44,28 @@ pub fn spawn_runner_enemy(
     health: f32,
     vision: f32,
     speed: f32,
+    max_force: f32,
 ) -> Entity {
-    let enemy = spawn_base_enemy(&mut commands, &ascii, sprite_index, color, position, size, health, speed);
-    commands.entity(enemy)
-        .insert(EnemyFlock{speed: 2.0})
+    let enemy = spawn_base_enemy(
+        &mut commands,
+        &ascii,
+        sprite_index,
+        color,
+        position,
+        size,
+        health,
+        vision,
+    );
+    commands
+        .entity(enemy)
+        .insert(EnemyFlock {
+            speed: speed,
+            max_force: max_force,
+            velocity: Vec3::splat(0.0),
+            acceleration: Vec3::splat(0.0),
+            in_view: Vec::new(),
+        })
         .insert(RunnerEnemy);
 
     enemy
 }
-
