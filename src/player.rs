@@ -5,9 +5,9 @@ use bevy::{
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{Bullet, CameraFlag, Exit, Manager, Player, TileCollider, Enemy},
-    make_new_stage, TILE_SIZE,
+    components::{Bullet, CameraFlag, Enemy, EnemyFlock, Exit, Manager, Player, TileCollider},
     enemy::set_magnitude,
+    make_new_stage, TILE_SIZE,
 };
 
 use crate::tilemap::{MAP_BLOCK_X, MAP_BLOCK_Y};
@@ -39,8 +39,9 @@ pub fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         .entity(player)
         .insert(Name::new("Player"))
         .insert(Player {
-            speed: 280.0,
+            speed: 220.0,
             health: 2,
+            shoot_timer: Timer::from_seconds(1.0, false),
         });
 }
 
@@ -53,7 +54,10 @@ pub struct MoveDirections {
 
 fn player_controller(
     mut query: Query<(&Player, &mut Transform), With<Player>>,
-    mut tile_query: Query<(&Transform, &TileCollider), (With<TileCollider>, Without<Player>)>,
+    mut tile_query: Query<
+        (&Transform, &TileCollider),
+        (With<TileCollider>, Without<Player>, Without<EnemyFlock>),
+    >,
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
@@ -93,9 +97,12 @@ fn player_controller(
     }
 }
 
-fn wall_collision_check(
+pub fn wall_collision_check(
     target_position: Vec3,
-    wall_query: &Query<(&Transform, &TileCollider), (With<TileCollider>, Without<Player>)>,
+    wall_query: &Query<
+        (&Transform, &TileCollider),
+        (With<TileCollider>, Without<Player>, Without<EnemyFlock>),
+    >,
 ) -> bool {
     for (wall_transform, wall_collider) in wall_query.iter() {
         let collision = collide(
@@ -118,7 +125,7 @@ fn camera_follow(
     let player_transform = player_query.single_mut();
 
     camera_transform.translation = player_transform.translation;
-    camera_transform.translation[2] = 100.0;
+    camera_transform.translation[2] = 600.0;
 }
 
 pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) {
@@ -127,7 +134,7 @@ pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) 
         &ascii,
         3,
         Color::rgb(0.1, 0.7, 0.4),
-        Vec3::new(0.0, 0.0, 100.0),
+        Vec3::new(0.0, 0.0, 0.0),
         Vec2::splat(TILE_SIZE * 0.98),
     );
     commands
@@ -136,6 +143,7 @@ pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) 
         .insert(Player {
             speed: 280.0,
             health: 100,
+            shoot_timer: Timer::from_seconds(1.0, false),
         });
 }
 
@@ -150,27 +158,24 @@ fn player_exit(
     let player_transform = player_query.single();
     let exit_transform = exit_query.single();
 
-    println!(
-        "{}",
-        Vec3::distance(player_transform.translation, exit_transform.translation)
-    );
-    if Vec3::distance(player_transform.translation, exit_transform.translation)
-        < (100.0 + TILE_SIZE) * 0.98
-    {
+    if Vec3::distance(player_transform.translation, exit_transform.translation) < TILE_SIZE {
         println!("making new stage");
         make_new_stage(commands, ascii, entity_query, assets);
     }
 }
 
 fn player_shoot(
-    mut commands: Commands, 
-    windows: Res<Windows>, 
-    buttons: Res<Input<MouseButton>>, 
-    player_query: Query<&Transform, With<Player>>,
+    mut commands: Commands,
+    windows: Res<Windows>,
+    buttons: Res<Input<MouseButton>>,
+    mut player_query: Query<(&Transform, &mut Player), With<Player>>,
     mut assets: Res<AssetServer>,
-
+    time: Res<Time>,
 ) {
-    let player_position = player_query.single();
+    // set all the vars up correctl
+    // there are some problems with this code that leads to crashes when you bring your cursor
+    // outside the window but I can't be bothered to fix that right now
+    let (player_position, mut player) = player_query.single_mut();
     let mut w_width: f32 = 1920.0;
     let mut w_height: f32 = 1080.0;
     let mut mouse_position: Vec2 = Vec2::new(w_width / 2.0, w_height / 2.0);
@@ -180,15 +185,25 @@ fn player_shoot(
         mouse_position = window.cursor_position().unwrap();
     }
 
-    if buttons.just_pressed(MouseButton::Left) {
-        let mut shoot_vector = Vec3::new(
-            mouse_position[0] - w_width/2.0,
-            mouse_position[1] - w_height/2.0,
-            0.0,
-        );
-        shoot_vector = set_magnitude(shoot_vector, 10.0);
+    player.shoot_timer.tick(time.delta());
 
-        make_bullet(&mut commands, &mut assets, player_position.translation, shoot_vector);
+    if player.shoot_timer.finished() {
+        if buttons.pressed(MouseButton::Left) {
+            let mut shoot_vector = Vec3::new(
+                mouse_position[0] - w_width / 2.0,
+                mouse_position[1] - w_height / 2.0,
+                0.0,
+            );
+            shoot_vector = set_magnitude(shoot_vector, 10.0);
+
+            make_bullet(
+                &mut commands,
+                &mut assets,
+                player_position.translation,
+                shoot_vector,
+            );
+            player.shoot_timer.reset();
+        }
     }
 }
 // 248~ ascii index
@@ -213,24 +228,25 @@ pub fn make_bullet(
     bullet.insert(Bullet { move_vector });
 }
 
-fn update_bullets(mut commands: Commands, mut query: Query<(&mut Transform, &Bullet), With<Bullet>>, mut enemy_query: Query<(Entity, &Transform), (With<Enemy>, Without<Bullet>)>) {
-    for (mut transform, bullet) in query.iter_mut() {
-        transform.translation += bullet.move_vector;
-        for (enemy, enemy_transform) in enemy_query.iter_mut(){
+fn update_bullets(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Transform, &Bullet), With<Bullet>>,
+    mut enemy_query: Query<(Entity, &Transform), (With<Enemy>, Without<Bullet>)>,
+) {
+    for (bullet, mut transform, bullet_vars) in query.iter_mut() {
+        transform.translation += bullet_vars.move_vector;
+        for (enemy, enemy_transform) in enemy_query.iter_mut() {
             if Vec3::distance(transform.translation, enemy_transform.translation) < TILE_SIZE {
                 commands.entity(enemy).despawn();
+                commands.entity(bullet).despawn();
             }
         }
     }
 }
 
-fn player_health(
-    mut commands: Commands,
-    player_query: Query<(Entity, &Player), With<Player>>,
-) {
+fn player_health(mut commands: Commands, player_query: Query<(Entity, &Player), With<Player>>) {
     let (player, player_vars) = player_query.single();
     if player_vars.health < 1 {
         commands.entity(player).despawn();
     }
 }
-

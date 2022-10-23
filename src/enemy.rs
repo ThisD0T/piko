@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     components::{Enemy, EnemyFlock, Node, NodeGraph, Player, TileCollider},
+    player::wall_collision_check,
     TILE_SIZE,
 };
 
@@ -12,7 +13,8 @@ impl Plugin for EnemyPlugin {
         app.add_system(enemy_detect)
             .add_system(enemy_chase)
             .add_system(enemy_phys_update)
-            .add_system(enemy_hit_detect);
+            .add_system(enemy_hit_detect)
+            .add_system(enemy_separation);
     }
 }
 
@@ -68,7 +70,7 @@ fn enemy_seek(enemy: &mut EnemyFlock, enemy_translation: Vec3, target: Vec3) -> 
     let mut steering = desired - enemy.velocity;
     steering = set_magnitude(steering, enemy.max_force);
     desired = set_magnitude(desired, enemy.max_force);
-    return steering;
+    return desired;
 }
 
 fn enemy_flee(
@@ -87,22 +89,50 @@ fn enemy_flee(
         steering = steering / (avoid_list.len() as f32).round();
         steering = set_magnitude(steering, enemy.max_force);
         // steering = steering - enemy.velocity; // steering formula
-        steering = Vec3::clamp_length_max(steering, enemy.speed * 1.5);
+        steering = Vec3::clamp_length_max(steering, enemy.speed * 2.5);
         return steering;
     } else {
         return Vec3::splat(0.0);
     }
 }
-/*
-fn enemy_vision(mut enemy_query: Query<(&mut Transform, &Enemy, &mut EnemyFlock), With<Enemy>>) {
-    let mut transform_list: Vec<&mut Transform> = Vec::new();
-    for i in enemy_query.len() {}
+
+fn enemy_vision(
+    mut enemy_query: Query<(&mut Transform, &Enemy, &mut EnemyFlock), With<Enemy>>,
+) -> Vec<Transform> {
+    return Vec::new();
 }
 
-fn enemy_separation(enemy_query: Query<(&Transform, &Enemy, &mut EnemyFlock), With<EnemyFlock>>) {
-    for (transform, enemy, mut enemy_flock) in enemy_query.iter_mut() {}
+fn enemy_separation(
+    mut enemy_query: Query<(&Transform, &Enemy, &mut EnemyFlock), With<EnemyFlock>>,
+) {
+    let mut iter = enemy_query.iter_combinations_mut();
+    while let Some([(transform, enemy, mut enemy_flock), (transform2, enemy2, enemy_flock2)]) =
+        iter.fetch_next()
+    {
+        let mut something_in_vision = false;
+        let mut vision_total = 0;
+        let mut steering = Vec3::splat(0.0);
+        if Vec3::distance(transform.translation, transform2.translation) < enemy.vision / 2.0 {
+            something_in_vision = true;
+            let d = Vec3::distance(transform.translation, transform2.translation);
+            let mut diff = get_vector(transform.translation, transform2.translation);
+            diff = diff / (d * d);
+            steering += diff;
+
+            vision_total += 1;
+        }
+
+        if something_in_vision {
+            // this is to avoid dividing by zero and making things go wonky
+            // apply forces
+            steering = steering / vision_total as f32;
+            steering = set_magnitude(steering, enemy_flock.max_force * 0.5);
+            steering = Vec3::clamp_length_max(steering, enemy_flock.speed);
+            enemy_flock.acceleration += steering;
+        }
+    }
 }
-*/
+
 pub fn set_magnitude(mut vector: Vec3, magnitude: f32) -> Vec3 {
     vector = vector / vector.length();
     vector *= magnitude;
@@ -115,14 +145,29 @@ fn get_vector(vec_1: Vec3, vec_2: Vec3) -> Vec3 {
 
 fn enemy_phys_update(
     mut enemy_query: Query<(&mut Transform, &mut EnemyFlock, &Enemy), With<EnemyFlock>>,
+    tile_query: Query<
+        (&Transform, &TileCollider),
+        (With<TileCollider>, Without<Player>, Without<EnemyFlock>),
+    >,
+    time: Res<Time>,
 ) {
     for (mut transform, mut enemy_flock, enemy) in enemy_query.iter_mut() {
         if enemy.spotted_player {
             enemy_flock.velocity = enemy_flock.velocity + enemy_flock.acceleration;
             enemy_flock.velocity = Vec3::clamp_length_max(enemy_flock.velocity, enemy_flock.speed);
-
             enemy_flock.velocity[2] = 0.0;
-            transform.translation += enemy_flock.velocity;
+
+            let wish_pos = Vec3::new(enemy_flock.velocity[0] * time.delta_seconds(), 0.0, 0.0)
+                + transform.translation;
+            if !wall_collision_check(wish_pos, &tile_query) {
+                transform.translation = wish_pos;
+            }
+
+            let wish_pos = Vec3::new(0.0, enemy_flock.velocity[1] * time.delta_seconds(), 0.0)
+                + transform.translation;
+            if !wall_collision_check(wish_pos, &tile_query) {
+                transform.translation = wish_pos;
+            }
 
             enemy_flock.acceleration = Vec3::splat(0.0);
             transform.translation[2] = 0.0;
@@ -143,4 +188,3 @@ fn enemy_hit_detect(
         }
     }
 }
-

@@ -25,7 +25,7 @@ use player::{respawn_player, PlayerPlugin};
 mod enemy;
 use enemy::EnemyPlugin;
 
-pub const TILE_SIZE: f32 = 15.0;
+pub const TILE_SIZE: f32 = 35.0;
 
 fn main() {
     App::new()

@@ -4,6 +4,7 @@ use bevy::prelude::*;
 pub struct Player {
     pub speed: f32,
     pub health: u32,
+    pub shoot_timer: Timer,
 }
 
 #[derive(Component)]

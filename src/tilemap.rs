@@ -221,9 +221,9 @@ fn draw_map_blocks(
                                 tile_translation,
                                 Vec2::splat(TILE_SIZE),
                                 1.0,
-                                TILE_SIZE * 16.0,
-                                5.0,
-                                1.0,
+                                TILE_SIZE * 24.0,
+                                305.0,
+                                10.0,
                             );
                         }
                     } else {
