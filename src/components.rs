@@ -49,3 +49,8 @@ pub struct Manager;
 
 #[derive(Component)]
 pub struct Exit;
+
+#[derive(Component)]
+pub struct Bullet {
+    move_vector: Vec3,
+}

@@ -149,9 +149,18 @@ fn player_exit(
         Vec3::distance(player_transform.translation, exit_transform.translation)
     );
     if Vec3::distance(player_transform.translation, exit_transform.translation)
-        < (110.0 + TILE_SIZE) * 0.98
+        < (100.0 + TILE_SIZE) * 0.98
     {
         println!("making new stage");
         make_new_stage(commands, ascii, entity_query);
     }
 }
+
+fn player_shoot(commands: Commands, window: Res<Window>) {
+    let mouse_position = window.cursor_position();
+}
+
+fn make_bullet (
+
+    )
+
