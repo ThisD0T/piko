@@ -59,11 +59,12 @@ fn make_new_stage(
     mut commands: Commands,
     mut ascii: Res<AsciiSheet>,
     mut entities_query: Query<Entity, Without<Manager>>,
+    mut assets: Res<AssetServer>,
 ) {
     for entity in entities_query.iter_mut() {
         commands.entity(entity).despawn();
     }
-    generate_map(&mut commands, &mut ascii);
+    generate_map(&mut commands, &mut ascii, &mut assets);
     respawn_player(&mut commands, &mut ascii);
     spawn_camera(commands);
 }

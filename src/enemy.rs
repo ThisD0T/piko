@@ -11,7 +11,8 @@ impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(enemy_detect)
             .add_system(enemy_chase)
-            .add_system(enemy_phys_update);
+            .add_system(enemy_phys_update)
+            .add_system(enemy_hit_detect);
     }
 }
 
@@ -64,10 +65,10 @@ fn enemy_chase(
 
 fn enemy_seek(enemy: &mut EnemyFlock, enemy_translation: Vec3, target: Vec3) -> Vec3 {
     let mut desired = target - enemy_translation;
-    // let mut steering = desired - enemy.velocity;
-    // steering = set_magnitude(steering, enemy.max_force);
+    let mut steering = desired - enemy.velocity;
+    steering = set_magnitude(steering, enemy.max_force);
     desired = set_magnitude(desired, enemy.max_force);
-    return desired;
+    return steering;
 }
 
 fn enemy_flee(
@@ -102,14 +103,14 @@ fn enemy_separation(enemy_query: Query<(&Transform, &Enemy, &mut EnemyFlock), Wi
     for (transform, enemy, mut enemy_flock) in enemy_query.iter_mut() {}
 }
 */
-fn set_magnitude(mut vector: Vec3, magnitude: f32) -> Vec3 {
+pub fn set_magnitude(mut vector: Vec3, magnitude: f32) -> Vec3 {
     vector = vector / vector.length();
     vector *= magnitude;
     return vector;
 }
 
 fn get_vector(vec_1: Vec3, vec_2: Vec3) -> Vec3 {
-    return Vec3::new(vec_1[0] - vec_2[0], vec_1[1] - vec_2[1], 0.0);
+    Vec3::new(vec_1[0] - vec_2[0], vec_1[1] - vec_2[1], 0.0)
 }
 
 fn enemy_phys_update(
@@ -120,6 +121,7 @@ fn enemy_phys_update(
             enemy_flock.velocity = enemy_flock.velocity + enemy_flock.acceleration;
             enemy_flock.velocity = Vec3::clamp_length_max(enemy_flock.velocity, enemy_flock.speed);
 
+            enemy_flock.velocity[2] = 0.0;
             transform.translation += enemy_flock.velocity;
 
             enemy_flock.acceleration = Vec3::splat(0.0);
@@ -127,3 +129,18 @@ fn enemy_phys_update(
         }
     }
 }
+
+fn enemy_hit_detect(
+    mut commands: Commands,
+    enemy_query: Query<(Entity, &Transform), With<Enemy>>,
+    mut player_query: Query<(&mut Player, &Transform), With<Player>>,
+) {
+    let (mut player, player_transform) = player_query.single_mut();
+    for (enemy, enemy_transform) in enemy_query.iter() {
+        if Vec3::distance(enemy_transform.translation, player_transform.translation) < TILE_SIZE {
+            commands.entity(enemy).despawn();
+            player.health -= 1;
+        }
+    }
+}
+

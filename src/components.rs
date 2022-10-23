@@ -52,5 +52,5 @@ pub struct Exit;
 
 #[derive(Component)]
 pub struct Bullet {
-    move_vector: Vec3,
+    pub move_vector: Vec3,
 }

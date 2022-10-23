@@ -5,8 +5,9 @@ use bevy::{
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{CameraFlag, Exit, Manager, Player, TileCollider},
+    components::{Bullet, CameraFlag, Exit, Manager, Player, TileCollider, Enemy},
     make_new_stage, TILE_SIZE,
+    enemy::set_magnitude,
 };
 
 use crate::tilemap::{MAP_BLOCK_X, MAP_BLOCK_Y};
@@ -18,7 +19,10 @@ impl Plugin for PlayerPlugin {
         app.add_startup_system(spawn_player)
             .add_system(camera_follow)
             .add_system(player_exit)
-            .add_system(player_controller);
+            .add_system(player_controller)
+            .add_system(player_shoot)
+            .add_system(update_bullets)
+            .add_system(player_health);
     }
 }
 
@@ -28,7 +32,7 @@ pub fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         &ascii,
         3,
         Color::rgb(0.1, 0.7, 0.4),
-        Vec3::new(0.0, 0.0, 100.0),
+        Vec3::new(0.0, 0.0, 0.0),
         Vec2::splat(TILE_SIZE * 0.98),
     );
     commands
@@ -36,7 +40,7 @@ pub fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         .insert(Name::new("Player"))
         .insert(Player {
             speed: 280.0,
-            health: 100,
+            health: 2,
         });
 }
 
@@ -114,6 +118,7 @@ fn camera_follow(
     let player_transform = player_query.single_mut();
 
     camera_transform.translation = player_transform.translation;
+    camera_transform.translation[2] = 100.0;
 }
 
 pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) {
@@ -137,6 +142,7 @@ pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) 
 fn player_exit(
     mut commands: Commands,
     ascii: Res<AsciiSheet>,
+    assets: Res<AssetServer>,
     entity_query: Query<Entity, Without<Manager>>,
     player_query: Query<&Transform, With<Player>>,
     exit_query: Query<&Transform, (With<Exit>, Without<Player>)>,
@@ -152,15 +158,79 @@ fn player_exit(
         < (100.0 + TILE_SIZE) * 0.98
     {
         println!("making new stage");
-        make_new_stage(commands, ascii, entity_query);
+        make_new_stage(commands, ascii, entity_query, assets);
     }
 }
 
-fn player_shoot(commands: Commands, window: Res<Window>) {
-    let mouse_position = window.cursor_position();
+fn player_shoot(
+    mut commands: Commands, 
+    windows: Res<Windows>, 
+    buttons: Res<Input<MouseButton>>, 
+    player_query: Query<&Transform, With<Player>>,
+    mut assets: Res<AssetServer>,
+
+) {
+    let player_position = player_query.single();
+    let mut w_width: f32 = 1920.0;
+    let mut w_height: f32 = 1080.0;
+    let mut mouse_position: Vec2 = Vec2::new(w_width / 2.0, w_height / 2.0);
+    for window in windows.iter() {
+        w_width = window.width();
+        w_height = window.height();
+        mouse_position = window.cursor_position().unwrap();
+    }
+
+    if buttons.just_pressed(MouseButton::Left) {
+        let mut shoot_vector = Vec3::new(
+            mouse_position[0] - w_width/2.0,
+            mouse_position[1] - w_height/2.0,
+            0.0,
+        );
+        shoot_vector = set_magnitude(shoot_vector, 10.0);
+
+        make_bullet(&mut commands, &mut assets, player_position.translation, shoot_vector);
+    }
+}
+// 248~ ascii index
+pub fn make_bullet(
+    mut commands: &mut Commands,
+    mut assets: &mut Res<AssetServer>,
+    spawn_position: Vec3,
+    move_vector: Vec3,
+) {
+    let mut bullet = commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::splat(6.0)),
+            ..default()
+        },
+        transform: Transform {
+            translation: spawn_position,
+            ..default()
+        },
+        texture: assets.load("bullet.png"),
+        ..default()
+    });
+    bullet.insert(Bullet { move_vector });
 }
 
-fn make_bullet (
+fn update_bullets(mut commands: Commands, mut query: Query<(&mut Transform, &Bullet), With<Bullet>>, mut enemy_query: Query<(Entity, &Transform), (With<Enemy>, Without<Bullet>)>) {
+    for (mut transform, bullet) in query.iter_mut() {
+        transform.translation += bullet.move_vector;
+        for (enemy, enemy_transform) in enemy_query.iter_mut(){
+            if Vec3::distance(transform.translation, enemy_transform.translation) < TILE_SIZE {
+                commands.entity(enemy).despawn();
+            }
+        }
+    }
+}
 
-    )
+fn player_health(
+    mut commands: Commands,
+    player_query: Query<(Entity, &Player), With<Player>>,
+) {
+    let (player, player_vars) = player_query.single();
+    if player_vars.health < 1 {
+        commands.entity(player).despawn();
+    }
+}
 

@@ -15,7 +15,9 @@ use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
     components::{Exit, TileCollider},
     gameobject::spawn_runner_enemy,
-    make_new_stage, TILE_SIZE,
+    make_new_stage,
+    player::make_bullet,
+    TILE_SIZE,
 };
 
 pub const MAP_BLOCK_X: f32 = 32.0 * TILE_SIZE;
@@ -45,12 +47,23 @@ fn random_map_id(id_list: &Vec<String>) -> String {
     return id_list.choose(&mut rng).unwrap().to_string();
 }
 
-fn first_map_gen(mut commands: Commands, mut ascii: Res<AsciiSheet>) {
-    generate_map(&mut commands, &mut ascii);
+fn first_map_gen(mut commands: Commands, mut ascii: Res<AsciiSheet>, mut assets: Res<AssetServer>) {
+    generate_map(&mut commands, &mut ascii, &mut assets);
 }
 
 // simplified map generation system because the last one was ridiculous
-pub fn generate_map(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) {
+pub fn generate_map(
+    mut commands: &mut Commands,
+    mut ascii: &mut Res<AsciiSheet>,
+    mut assets: &mut Res<AssetServer>,
+) {
+    make_bullet(
+        &mut commands,
+        &mut assets,
+        Vec3::splat(TILE_SIZE * 1000.0),
+        Vec3::splat(0.0),
+    );
+
     let mut rng = thread_rng();
 
     let map_size = 2;
@@ -114,7 +127,7 @@ pub fn generate_map(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) {
         }
     }
 
-    draw_map_blocks(commands, ascii, map_blocks, map_size);
+    draw_map_blocks(commands, &mut ascii, map_blocks, map_size);
 }
 
 fn draw_map_blocks(
