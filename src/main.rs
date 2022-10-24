@@ -17,7 +17,7 @@ mod ascii;
 use ascii::{AsciiPlugin, AsciiSheet};
 
 mod ui;
-use ui::UiPlugin;
+use ui::{UiPlugin, setup_ui};
 
 mod tilemap;
 use tilemap::{generate_map, TileMapPlugin};
@@ -28,12 +28,22 @@ use player::{respawn_player, PlayerPlugin};
 mod enemy;
 use enemy::EnemyPlugin;
 
-pub const TILE_SIZE: f32 = 35.0;
+// mod colourscheme;
+// use colourscheme::ColourPlugin;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+pub enum GameState {
+    Playing,
+    GameEnd,
+}
+
+pub const TILE_SIZE: f32 = 25.0;
 
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb_u8(0, 0, 0)))
         .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
+        .add_state(GameState::Playing)
         .insert_resource(WindowDescriptor {
             title: "Piko".to_string(),
             mode: WindowMode::Fullscreen,
@@ -48,6 +58,7 @@ fn main() {
         .add_plugin(GameObjectPlugin)
         .add_plugin(UiPlugin)
         .add_startup_system(spawn_camera)
+        .add_startup_system(game_manager_setup)
         .run();
 }
 
@@ -64,11 +75,27 @@ fn make_new_stage(
     mut ascii: Res<AsciiSheet>,
     mut entities_query: Query<Entity, Without<Manager>>,
     mut assets: Res<AssetServer>,
+    // mut manager_query: Query<&mut Manager, With<Manager>>,
 ) {
+    // let manager = manager_query.single_mut();
+    // manager.stage_number += 1;
     for entity in entities_query.iter_mut() {
         commands.entity(entity).despawn();
     }
+    setup_ui(&mut commands, &assets);
     generate_map(&mut commands, &mut ascii, &mut assets);
     respawn_player(&mut commands, &mut ascii);
     spawn_camera(commands);
+}
+
+fn game_manager_setup (
+    mut commands: Commands
+) {
+    let game_manager = commands.spawn().id();
+    commands.entity(game_manager)
+        .insert(Manager{
+            difficulty_coefficient: 0.1,
+            player_ammo: 3,
+            stage_number: 0,
+        });
 }

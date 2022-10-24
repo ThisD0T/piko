@@ -3,7 +3,7 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct Player {
     pub speed: f32,
-    pub health: u32,
+    pub health: i32,
     pub shoot_timer: Timer,
     pub ammo: i32,
     pub velocity: Vec3,
@@ -50,7 +50,11 @@ pub struct Node {
 pub struct NodeGraph(Vec<Vec<Node>>);
 
 #[derive(Component)]
-pub struct Manager;
+pub struct Manager {
+    pub difficulty_coefficient: f32,
+    pub player_ammo: i32,
+    pub stage_number: i32
+}
 
 #[derive(Component)]
 pub struct Exit;
@@ -68,3 +72,4 @@ pub struct AmmoText;
 
 #[derive(Component)]
 pub struct HealthText;
+

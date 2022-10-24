@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{Exit, TileCollider, Ammo},
+    components::{Ammo, Exit, Manager, TileCollider},
     gameobject::spawn_runner_enemy,
     make_new_stage,
     player::make_bullet,
@@ -47,7 +47,12 @@ fn random_map_id(id_list: &Vec<String>) -> String {
     return id_list.choose(&mut rng).unwrap().to_string();
 }
 
-fn first_map_gen(mut commands: Commands, mut ascii: Res<AsciiSheet>, mut assets: Res<AssetServer>) {
+fn first_map_gen(
+    mut commands: Commands,
+    mut ascii: Res<AsciiSheet>,
+    mut assets: Res<AssetServer>,
+    manager_query: Query<&Manager, With<Manager>>,
+) {
     generate_map(&mut commands, &mut ascii, &mut assets);
 }
 
@@ -56,6 +61,7 @@ pub fn generate_map(
     mut commands: &mut Commands,
     mut ascii: &mut Res<AsciiSheet>,
     mut assets: &mut Res<AssetServer>,
+    // manager_query: Query<&Manager, With<Manager>>,
 ) {
     make_bullet(
         &mut commands,
@@ -135,6 +141,7 @@ fn draw_map_blocks(
     ascii: &mut Res<AsciiSheet>,
     map_blocks: Vec<MapBlock>,
     map_size: i32,
+    // manager_query: &mut Query<&Manager, With<Manager>>,
 ) {
     let mut rng = rand::thread_rng();
 
@@ -236,16 +243,15 @@ fn draw_map_blocks(
                             1.0,
                         );
                         let fuel = spawn_ascii_sprite(
-                                &mut commands,
-                                &ascii,
-                                char as usize,
-                                Color::rgb_u8(255, 255, 255),
-                                tile_translation,
-                                Vec2::splat(TILE_SIZE),
-                            );
+                            &mut commands,
+                            &ascii,
+                            char as usize,
+                            Color::rgb_u8(255, 255, 255),
+                            tile_translation,
+                            Vec2::splat(TILE_SIZE),
+                        );
 
-                        commands.entity(fuel)
-                            .insert(Ammo);
+                        commands.entity(fuel).insert(Ammo);
                     } else {
                     }
                 }

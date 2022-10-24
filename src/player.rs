@@ -5,9 +5,11 @@ use bevy::{
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{Bullet, CameraFlag, Enemy, EnemyFlock, Exit, Manager, Player, TileCollider, Ammo},
+    components::{
+        Ammo, Bullet, CameraFlag, Enemy, EnemyFlock, Exit, Manager, Player, TileCollider,
+    },
     enemy::set_magnitude,
-    make_new_stage, TILE_SIZE,
+    make_new_stage, GameState, TILE_SIZE,
 };
 
 use crate::tilemap::{MAP_BLOCK_X, MAP_BLOCK_Y};
@@ -15,20 +17,24 @@ use crate::tilemap::{MAP_BLOCK_X, MAP_BLOCK_Y};
 const PLAYER_SPEED: f32 = 420.0;
 const PLAYER_MAX_SPEED: f32 = 400.0;
 const STARTING_PLAYER_AMMO: i32 = 3;
+const PLAYER_HEALTH: i32 = 3;
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(spawn_player)
-            .add_system(camera_follow)
-            .add_system(player_exit)
-            .add_system(player_controller)
-            .add_system(player_shoot)
-            .add_system(update_bullets)
-            .add_system(player_health)
-            .add_system(player_phys_update)
-            .add_system(player_ammo_check);
+        app.add_system_set(
+            SystemSet::on_update(GameState::Playing)
+                .with_system(player_health)
+                .with_system(player_shoot)
+                .with_system(camera_follow)
+                .with_system(player_exit)
+                .with_system(player_controller)
+                .with_system(update_bullets)
+                .with_system(player_phys_update)
+                .with_system(player_ammo_check),
+        )
+        .add_startup_system(spawn_player);
     }
 }
 
@@ -46,7 +52,7 @@ pub fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         .insert(Name::new("Player"))
         .insert(Player {
             speed: PLAYER_SPEED,
-            health: 2,
+            health: PLAYER_HEALTH,
             shoot_timer: Timer::from_seconds(1.0, false),
             ammo: STARTING_PLAYER_AMMO,
             velocity: Vec3::splat(0.0),
@@ -71,7 +77,7 @@ fn player_controller(
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let (mut player, mut transform) = query.single_mut();
+    let (mut player, transform) = query.single_mut();
 
     let move_directions = MoveDirections {
         up: Vec3::new(0.0, player.speed * time.delta_seconds(), 0.0),
@@ -97,7 +103,6 @@ fn player_controller(
     }
 
     player.acceleration += move_vector;
-
 }
 
 fn player_phys_update(
@@ -110,30 +115,30 @@ fn player_phys_update(
 ) {
     let (mut transform, mut player) = player_query.single_mut();
 
-            player.velocity = player.velocity + player.acceleration;
-            let friction = player.velocity * -0.01;
-            player.velocity = player.velocity + friction;
-            player.velocity = Vec3::clamp_length_max(player.velocity, player.max_speed);
-            player.velocity[2] = 0.0;
+    player.velocity = player.velocity + player.acceleration;
+    let friction = player.velocity * -0.01;
+    player.velocity = player.velocity + friction;
+    player.velocity = Vec3::clamp_length_max(player.velocity, player.max_speed);
+    player.velocity[2] = 0.0;
 
-            let wish_pos = Vec3::new(player.velocity[0] * time.delta_seconds(), 0.0, 0.0)
-                + transform.translation;
-            if !wall_collision_check(wish_pos, &tile_query) {
-                transform.translation = wish_pos;
-            } else {
-                player.velocity[0] = 0.0;
-            }
+    let wish_pos =
+        Vec3::new(player.velocity[0] * time.delta_seconds(), 0.0, 0.0) + transform.translation;
+    if !wall_collision_check(wish_pos, &tile_query) {
+        transform.translation = wish_pos;
+    } else {
+        player.velocity[0] = 0.0;
+    }
 
-            let wish_pos = Vec3::new(0.0, player.velocity[1] * time.delta_seconds(), 0.0)
-                + transform.translation;
-            if !wall_collision_check(wish_pos, &tile_query) {
-                transform.translation = wish_pos;
-            } else {
-                player.velocity[1] = 0.0;
-            }
+    let wish_pos =
+        Vec3::new(0.0, player.velocity[1] * time.delta_seconds(), 0.0) + transform.translation;
+    if !wall_collision_check(wish_pos, &tile_query) {
+        transform.translation = wish_pos;
+    } else {
+        player.velocity[1] = 0.0;
+    }
 
-            player.acceleration = Vec3::splat(0.0);
-            transform.translation[2] = 0.0;
+    player.acceleration = Vec3::splat(0.0);
+    transform.translation[2] = 0.0;
 }
 
 pub fn wall_collision_check(
@@ -181,7 +186,7 @@ pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) 
         .insert(Name::new("Player"))
         .insert(Player {
             speed: PLAYER_SPEED,
-            health: 100,
+            health: PLAYER_HEALTH,
             shoot_timer: Timer::from_seconds(1.0, false),
             ammo: STARTING_PLAYER_AMMO,
             velocity: Vec3::splat(0.0),
@@ -212,6 +217,7 @@ fn player_shoot(
     windows: Res<Windows>,
     buttons: Res<Input<MouseButton>>,
     mut player_query: Query<(&Transform, &mut Player), With<Player>>,
+    mut game_manager_query: Query<&mut Manager, With<Manager>>,
     mut assets: Res<AssetServer>,
     time: Res<Time>,
 ) {
@@ -219,6 +225,7 @@ fn player_shoot(
     // there are some problems with this code that leads to crashes when you bring your cursor
     // outside the window but I can't be bothered to fix that right now
     let (player_position, mut player) = player_query.single_mut();
+    let mut game_manager = game_manager_query.single_mut();
     let mut w_width: f32 = 1920.0;
     let mut w_height: f32 = 1080.0;
     let mut mouse_position: Vec2 = Vec2::new(w_width / 2.0, w_height / 2.0);
@@ -230,7 +237,7 @@ fn player_shoot(
 
     player.shoot_timer.tick(time.delta());
 
-    if player.shoot_timer.finished() && buttons.pressed(MouseButton::Left) && player.ammo > 0 {
+    if player.shoot_timer.finished() && buttons.pressed(MouseButton::Left) && game_manager.player_ammo > 0 {
         let mut shoot_vector = Vec3::new(
             mouse_position[0] - w_width / 2.0,
             mouse_position[1] - w_height / 2.0,
@@ -245,6 +252,7 @@ fn player_shoot(
             shoot_vector,
         );
         player.shoot_timer.reset();
+        game_manager.player_ammo -= 1;
     }
 }
 // 248~ ascii index
@@ -285,9 +293,16 @@ fn update_bullets(
     }
 }
 
-fn player_health(mut commands: Commands, player_query: Query<(Entity, &Player), With<Player>>) {
+fn player_health(
+    mut commands: Commands,
+    player_query: Query<(Entity, &Player), With<Player>>,
+    mut state: ResMut<State<GameState>>,
+) {
     let (player, player_vars) = player_query.single();
     if player_vars.health < 1 {
+        state
+            .set(GameState::GameEnd)
+            .expect("Failed to change gamestate.");
         commands.entity(player).despawn();
     }
 }
@@ -296,14 +311,17 @@ fn player_ammo_check(
     mut commands: Commands,
     mut player_query: Query<(&Transform, &mut Player), With<Player>>,
     mut fuel_query: Query<(Entity, &Transform), (With<Ammo>, Without<Player>)>,
+    mut manager_query: Query<&mut Manager, With<Manager>>,
 ) {
     let (player_transform, mut player) = player_query.single_mut();
+    let mut manager = manager_query.single_mut();
 
     for (fuel, fuel_transform) in fuel_query.iter_mut() {
-        if Vec3::distance(player_transform.translation, fuel_transform.translation) < TILE_SIZE * 0.98 {
+        if Vec3::distance(player_transform.translation, fuel_transform.translation)
+            < TILE_SIZE * 0.98
+        {
             commands.entity(fuel).despawn();
-            player.ammo = 3;
+            manager.player_ammo += 3;
         }
     }
 }
-
