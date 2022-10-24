@@ -5,6 +5,10 @@ pub struct Player {
     pub speed: f32,
     pub health: u32,
     pub shoot_timer: Timer,
+    pub ammo: i32,
+    pub velocity: Vec3,
+    pub acceleration: Vec3,
+    pub max_speed: f32,
 }
 
 #[derive(Component)]
@@ -55,3 +59,12 @@ pub struct Exit;
 pub struct Bullet {
     pub move_vector: Vec3,
 }
+
+#[derive(Component)]
+pub struct Ammo;
+
+#[derive(Component)]
+pub struct AmmoText;
+
+#[derive(Component)]
+pub struct HealthText;

@@ -59,8 +59,8 @@ pub fn spawn_runner_enemy(
     commands
         .entity(enemy)
         .insert(EnemyFlock {
-            speed: speed,
-            max_force: max_force,
+            speed,
+            max_force,
             velocity: Vec3::splat(0.0),
             acceleration: Vec3::splat(0.0),
             in_view: Vec::new(),

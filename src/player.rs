@@ -5,12 +5,16 @@ use bevy::{
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{Bullet, CameraFlag, Enemy, EnemyFlock, Exit, Manager, Player, TileCollider},
+    components::{Bullet, CameraFlag, Enemy, EnemyFlock, Exit, Manager, Player, TileCollider, Ammo},
     enemy::set_magnitude,
     make_new_stage, TILE_SIZE,
 };
 
 use crate::tilemap::{MAP_BLOCK_X, MAP_BLOCK_Y};
+
+const PLAYER_SPEED: f32 = 420.0;
+const PLAYER_MAX_SPEED: f32 = 400.0;
+const STARTING_PLAYER_AMMO: i32 = 3;
 
 pub struct PlayerPlugin;
 
@@ -22,7 +26,9 @@ impl Plugin for PlayerPlugin {
             .add_system(player_controller)
             .add_system(player_shoot)
             .add_system(update_bullets)
-            .add_system(player_health);
+            .add_system(player_health)
+            .add_system(player_phys_update)
+            .add_system(player_ammo_check);
     }
 }
 
@@ -39,9 +45,13 @@ pub fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
         .entity(player)
         .insert(Name::new("Player"))
         .insert(Player {
-            speed: 220.0,
+            speed: PLAYER_SPEED,
             health: 2,
             shoot_timer: Timer::from_seconds(1.0, false),
+            ammo: STARTING_PLAYER_AMMO,
+            velocity: Vec3::splat(0.0),
+            acceleration: Vec3::splat(0.0),
+            max_speed: PLAYER_MAX_SPEED,
         });
 }
 
@@ -53,7 +63,7 @@ pub struct MoveDirections {
 }
 
 fn player_controller(
-    mut query: Query<(&Player, &mut Transform), With<Player>>,
+    mut query: Query<(&mut Player, &mut Transform), With<Player>>,
     mut tile_query: Query<
         (&Transform, &TileCollider),
         (With<TileCollider>, Without<Player>, Without<EnemyFlock>),
@@ -61,7 +71,7 @@ fn player_controller(
     keys: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let (player, mut transform) = query.single_mut();
+    let (mut player, mut transform) = query.single_mut();
 
     let move_directions = MoveDirections {
         up: Vec3::new(0.0, player.speed * time.delta_seconds(), 0.0),
@@ -86,15 +96,44 @@ fn player_controller(
         move_vector += move_directions.right;
     }
 
-    let target_position = Vec3::new(move_vector[0], 0.0, 0.0) + transform.translation;
-    if !wall_collision_check(target_position, &tile_query) {
-        transform.translation = target_position;
-    }
+    player.acceleration += move_vector;
 
-    let target_position = Vec3::new(0.0, move_vector[1], 0.0) + transform.translation;
-    if !wall_collision_check(target_position, &tile_query) {
-        transform.translation = target_position;
-    }
+}
+
+fn player_phys_update(
+    mut player_query: Query<(&mut Transform, &mut Player), With<Player>>,
+    tile_query: Query<
+        (&Transform, &TileCollider),
+        (With<TileCollider>, Without<Player>, Without<EnemyFlock>),
+    >,
+    time: Res<Time>,
+) {
+    let (mut transform, mut player) = player_query.single_mut();
+
+            player.velocity = player.velocity + player.acceleration;
+            let friction = player.velocity * -0.01;
+            player.velocity = player.velocity + friction;
+            player.velocity = Vec3::clamp_length_max(player.velocity, player.max_speed);
+            player.velocity[2] = 0.0;
+
+            let wish_pos = Vec3::new(player.velocity[0] * time.delta_seconds(), 0.0, 0.0)
+                + transform.translation;
+            if !wall_collision_check(wish_pos, &tile_query) {
+                transform.translation = wish_pos;
+            } else {
+                player.velocity[0] = 0.0;
+            }
+
+            let wish_pos = Vec3::new(0.0, player.velocity[1] * time.delta_seconds(), 0.0)
+                + transform.translation;
+            if !wall_collision_check(wish_pos, &tile_query) {
+                transform.translation = wish_pos;
+            } else {
+                player.velocity[1] = 0.0;
+            }
+
+            player.acceleration = Vec3::splat(0.0);
+            transform.translation[2] = 0.0;
 }
 
 pub fn wall_collision_check(
@@ -141,9 +180,13 @@ pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) 
         .entity(player)
         .insert(Name::new("Player"))
         .insert(Player {
-            speed: 280.0,
+            speed: PLAYER_SPEED,
             health: 100,
             shoot_timer: Timer::from_seconds(1.0, false),
+            ammo: STARTING_PLAYER_AMMO,
+            velocity: Vec3::splat(0.0),
+            acceleration: Vec3::splat(0.0),
+            max_speed: PLAYER_MAX_SPEED,
         });
 }
 
@@ -187,23 +230,21 @@ fn player_shoot(
 
     player.shoot_timer.tick(time.delta());
 
-    if player.shoot_timer.finished() {
-        if buttons.pressed(MouseButton::Left) {
-            let mut shoot_vector = Vec3::new(
-                mouse_position[0] - w_width / 2.0,
-                mouse_position[1] - w_height / 2.0,
-                0.0,
-            );
-            shoot_vector = set_magnitude(shoot_vector, 10.0);
+    if player.shoot_timer.finished() && buttons.pressed(MouseButton::Left) && player.ammo > 0 {
+        let mut shoot_vector = Vec3::new(
+            mouse_position[0] - w_width / 2.0,
+            mouse_position[1] - w_height / 2.0,
+            0.0,
+        );
+        shoot_vector = set_magnitude(shoot_vector, 10.0);
 
-            make_bullet(
-                &mut commands,
-                &mut assets,
-                player_position.translation,
-                shoot_vector,
-            );
-            player.shoot_timer.reset();
-        }
+        make_bullet(
+            &mut commands,
+            &mut assets,
+            player_position.translation,
+            shoot_vector,
+        );
+        player.shoot_timer.reset();
     }
 }
 // 248~ ascii index
@@ -250,3 +291,19 @@ fn player_health(mut commands: Commands, player_query: Query<(Entity, &Player), 
         commands.entity(player).despawn();
     }
 }
+
+fn player_ammo_check(
+    mut commands: Commands,
+    mut player_query: Query<(&Transform, &mut Player), With<Player>>,
+    mut fuel_query: Query<(Entity, &Transform), (With<Ammo>, Without<Player>)>,
+) {
+    let (player_transform, mut player) = player_query.single_mut();
+
+    for (fuel, fuel_transform) in fuel_query.iter_mut() {
+        if Vec3::distance(player_transform.translation, fuel_transform.translation) < TILE_SIZE * 0.98 {
+            commands.entity(fuel).despawn();
+            player.ammo = 3;
+        }
+    }
+}
+

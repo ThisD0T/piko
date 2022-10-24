@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
-    components::{Exit, TileCollider},
+    components::{Exit, TileCollider, Ammo},
     gameobject::spawn_runner_enemy,
     make_new_stage,
     player::make_bullet,
@@ -226,6 +226,26 @@ fn draw_map_blocks(
                                 10.0,
                             );
                         }
+                    } else if char == 'A' {
+                        let tile_translation = Vec3::new(
+                            (MAP_BLOCK_X * 0.98 * map_block.x as f32 + x as f32 * TILE_SIZE * 0.98)
+                                + half_block_size as f32,
+                            (MAP_BLOCK_Y * 0.98 * map_block.y as f32
+                                + (y as f32) * TILE_SIZE * 0.98)
+                                + half_block_size as f32,
+                            1.0,
+                        );
+                        let fuel = spawn_ascii_sprite(
+                                &mut commands,
+                                &ascii,
+                                char as usize,
+                                Color::rgb_u8(255, 255, 255),
+                                tile_translation,
+                                Vec2::splat(TILE_SIZE),
+                            );
+
+                        commands.entity(fuel)
+                            .insert(Ammo);
                     } else {
                     }
                 }

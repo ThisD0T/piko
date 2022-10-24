@@ -16,6 +16,9 @@ use gameobject::GameObjectPlugin;
 mod ascii;
 use ascii::{AsciiPlugin, AsciiSheet};
 
+mod ui;
+use ui::UiPlugin;
+
 mod tilemap;
 use tilemap::{generate_map, TileMapPlugin};
 
@@ -43,6 +46,7 @@ fn main() {
         .add_plugin(AsciiPlugin)
         .add_plugin(TileMapPlugin)
         .add_plugin(GameObjectPlugin)
+        .add_plugin(UiPlugin)
         .add_startup_system(spawn_camera)
         .run();
 }
