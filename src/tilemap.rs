@@ -235,8 +235,11 @@ fn draw_map_blocks(
 
                         tiles.push(tile);
                     } else if char == '7' {
-                        let chance_of_spawn =
+                        let mut chance_of_spawn =
                             (manager.stage_number as f32 * manager.difficulty_coefficient) as f64;
+                        if chance_of_spawn > 1.0 {
+                            chance_of_spawn = 1.0;
+                        }
                         if rng.gen_bool(chance_of_spawn) {
                             let tile_translation = Vec3::new(
                                 (MAP_BLOCK_X * 0.98 * map_block.x as f32
