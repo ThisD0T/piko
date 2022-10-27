@@ -5,6 +5,7 @@ use bevy::{
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
+    colourscheme::ColourScheme,
     components::{
         Ammo, Bullet, CameraFlag, Enemy, EnemyFlock, Exit, Manager, Player, TileCollider,
     },
@@ -14,10 +15,10 @@ use crate::{
 
 use crate::tilemap::{MAP_BLOCK_X, MAP_BLOCK_Y};
 
-const PLAYER_SPEED: f32 = 420.0;
+const PLAYER_SPEED: f32 = 520.0;
 const PLAYER_MAX_SPEED: f32 = 400.0;
 const STARTING_PLAYER_AMMO: i32 = 3;
-const PLAYER_HEALTH: i32 = 3;
+const PLAYER_HEALTH: i32 = 4;
 
 pub struct PlayerPlugin;
 
@@ -38,12 +39,12 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-pub fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>) {
+pub fn spawn_player(mut commands: Commands, ascii: Res<AsciiSheet>, colours: Res<ColourScheme>) {
     let player = spawn_ascii_sprite(
         &mut commands,
         &ascii,
         3,
-        Color::rgb(0.1, 0.7, 0.4),
+        colours.colour_1,
         Vec3::new(0.0, 0.0, 0.0),
         Vec2::splat(TILE_SIZE * 0.98),
     );
@@ -202,13 +203,22 @@ fn player_exit(
     entity_query: Query<Entity, Without<Manager>>,
     player_query: Query<&Transform, With<Player>>,
     exit_query: Query<&Transform, (With<Exit>, Without<Player>)>,
+    colours: Res<ColourScheme>,
+    mut manager_query: Query<&mut Manager, With<Manager>>,
 ) {
     let player_transform = player_query.single();
     let exit_transform = exit_query.single();
 
     if Vec3::distance(player_transform.translation, exit_transform.translation) < TILE_SIZE {
         println!("making new stage");
-        make_new_stage(commands, ascii, entity_query, assets);
+        make_new_stage(
+            commands,
+            ascii,
+            entity_query,
+            assets,
+            colours,
+            &mut manager_query,
+        );
     }
 }
 
@@ -237,7 +247,10 @@ fn player_shoot(
 
     player.shoot_timer.tick(time.delta());
 
-    if player.shoot_timer.finished() && buttons.pressed(MouseButton::Left) && game_manager.player_ammo > 0 {
+    if player.shoot_timer.finished()
+        && buttons.pressed(MouseButton::Left)
+        && game_manager.player_ammo > 0
+    {
         let mut shoot_vector = Vec3::new(
             mouse_position[0] - w_width / 2.0,
             mouse_position[1] - w_height / 2.0,

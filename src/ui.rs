@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::components::{HealthText, Player, AmmoText, Manager};
+use crate::components::{AmmoText, HealthText, Manager, Player};
 
 pub struct UiPlugin;
 
@@ -12,10 +12,7 @@ impl Plugin for UiPlugin {
     }
 }
 
-fn make_stage_first(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    ) {
+fn make_stage_first(mut commands: Commands, assets: Res<AssetServer>) {
     setup_ui(&mut commands, &assets);
 }
 
@@ -59,7 +56,7 @@ pub fn setup_ui(mut commands: &mut Commands, assets: &Res<AssetServer>) {
     commands.entity(ammo_text).insert(AmmoText);
 }
 
-fn make_text_bundle(
+pub fn make_text_bundle(
     commands: &mut Commands,
     assets: &Res<AssetServer>,
     font_size: f32,
@@ -103,9 +100,8 @@ fn update_text(
 fn update_ammo_text(
     mut query: Query<&mut Text, With<AmmoText>>,
     mut manager_query: Query<&Manager, With<Manager>>,
-    ) {
+) {
     let mut ammo_text = query.single_mut();
     let game_manager = manager_query.single_mut();
     ammo_text.sections[1].value = format!("{}", game_manager.player_ammo);
 }
-

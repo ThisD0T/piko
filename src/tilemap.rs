@@ -13,6 +13,7 @@ use bevy::prelude::*;
 
 use crate::{
     ascii::{spawn_ascii_sprite, AsciiSheet},
+    colourscheme::ColourScheme,
     components::{Ammo, Exit, Manager, TileCollider},
     gameobject::spawn_runner_enemy,
     make_new_stage,
@@ -26,9 +27,7 @@ pub const MAP_BLOCK_Y: f32 = 32.0 * TILE_SIZE;
 pub struct TileMapPlugin;
 
 impl Plugin for TileMapPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_startup_system(first_map_gen);
-    }
+    fn build(&self, app: &mut App) {}
 }
 
 fn map_gen_manager() {}
@@ -51,9 +50,16 @@ fn first_map_gen(
     mut commands: Commands,
     mut ascii: Res<AsciiSheet>,
     mut assets: Res<AssetServer>,
-    manager_query: Query<&Manager, With<Manager>>,
+    mut manager_query: Query<&mut Manager, With<Manager>>,
+    colours: Res<ColourScheme>,
 ) {
-    generate_map(&mut commands, &mut ascii, &mut assets);
+    generate_map(
+        &mut commands,
+        &mut ascii,
+        &mut assets,
+        colours,
+        &mut manager_query,
+    );
 }
 
 // simplified map generation system because the last one was ridiculous
@@ -61,6 +67,8 @@ pub fn generate_map(
     mut commands: &mut Commands,
     mut ascii: &mut Res<AsciiSheet>,
     mut assets: &mut Res<AssetServer>,
+    colours: Res<ColourScheme>,
+    mut manager_query: &mut Query<&mut Manager, With<Manager>>,
     // manager_query: Query<&Manager, With<Manager>>,
 ) {
     make_bullet(
@@ -124,7 +132,7 @@ pub fn generate_map(
         }
     }
     // grab a random exit and then concatenate both of the vectors of map blocks
-    potential_exits.choose_mut(&mut rng).unwrap().block_id = "map_blocks/exit.txt".to_string();
+    potential_exits.choose_mut(&mut rng).unwrap().exit = true;
     map_blocks.append(&mut potential_exits);
 
     for mut map_block in map_blocks.iter_mut() {
@@ -133,7 +141,14 @@ pub fn generate_map(
         }
     }
 
-    draw_map_blocks(commands, &mut ascii, map_blocks, map_size);
+    draw_map_blocks(
+        commands,
+        &mut ascii,
+        map_blocks,
+        map_size,
+        colours,
+        &mut manager_query,
+    );
 }
 
 fn draw_map_blocks(
@@ -141,8 +156,11 @@ fn draw_map_blocks(
     ascii: &mut Res<AsciiSheet>,
     map_blocks: Vec<MapBlock>,
     map_size: i32,
+    colours: Res<ColourScheme>,
+    manager_query: &mut Query<&mut Manager, With<Manager>>,
     // manager_query: &mut Query<&Manager, With<Manager>>,
 ) {
+    let manager = manager_query.single();
     let mut rng = rand::thread_rng();
 
     let mut tiles = Vec::new();
@@ -154,13 +172,21 @@ fn draw_map_blocks(
     let half_block_size = (32 / 2) * TILE_SIZE as i32;
 
     for map_block in map_blocks {
-        let map_file = File::open(map_block.block_id).expect("Map file not found");
+        let mut map_file = File::open(map_block.block_id).expect("Map file not found.");
+        if map_block.exit {
+            map_file = File::open("map_blocks/exit.txt").expect("No exit map file found.");
+        }
         // iterate through all the characters in the map block file
         for (y, line) in BufReader::new(map_file).lines().enumerate() {
             if let Ok(line) = line {
                 for (x, char) in line.chars().enumerate() {
                     // spawn the walls and entities in the map block according the the text file
                     // that defines it
+
+                    let mut wall_colour = colours.wall_colour;
+                    if map_block.exit {
+                        wall_colour = colours.colour_0;
+                    }
 
                     if char == '#' {
                         let tile_translation = Vec3::new(
@@ -176,7 +202,7 @@ fn draw_map_blocks(
                             &mut commands,
                             &ascii,
                             0,
-                            Color::rgb_u8(255, 255, 255),
+                            wall_colour,
                             tile_translation,
                             Vec2::splat(TILE_SIZE),
                         );
@@ -200,7 +226,7 @@ fn draw_map_blocks(
                             &mut commands,
                             &ascii,
                             char as usize,
-                            Color::rgb_u8(255, 255, 255),
+                            colours.colour_0,
                             tile_translation,
                             Vec2::splat(TILE_SIZE),
                         );
@@ -209,7 +235,9 @@ fn draw_map_blocks(
 
                         tiles.push(tile);
                     } else if char == '7' {
-                        if rng.gen_bool(1.0 / 2.0) {
+                        let chance_of_spawn =
+                            (manager.stage_number as f32 * manager.difficulty_coefficient) as f64;
+                        if rng.gen_bool(chance_of_spawn) {
                             let tile_translation = Vec3::new(
                                 (MAP_BLOCK_X * 0.98 * map_block.x as f32
                                     + x as f32 * TILE_SIZE * 0.98)
@@ -224,7 +252,7 @@ fn draw_map_blocks(
                                 &mut commands,
                                 &ascii,
                                 4,
-                                Color::rgb_u8(255, 255, 255),
+                                colours.colour_0,
                                 tile_translation,
                                 Vec2::splat(TILE_SIZE),
                                 1.0,
@@ -246,7 +274,7 @@ fn draw_map_blocks(
                             &mut commands,
                             &ascii,
                             char as usize,
-                            Color::rgb_u8(255, 255, 255),
+                            colours.colour_2,
                             tile_translation,
                             Vec2::splat(TILE_SIZE),
                         );

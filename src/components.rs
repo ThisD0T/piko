@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 
 #[derive(Component)]
+pub struct MainMenuFlag;
+
+#[derive(Component)]
 pub struct Player {
     pub speed: f32,
     pub health: i32,
@@ -53,7 +56,7 @@ pub struct NodeGraph(Vec<Vec<Node>>);
 pub struct Manager {
     pub difficulty_coefficient: f32,
     pub player_ammo: i32,
-    pub stage_number: i32
+    pub stage_number: i32,
 }
 
 #[derive(Component)]
@@ -72,4 +75,3 @@ pub struct AmmoText;
 
 #[derive(Component)]
 pub struct HealthText;
-
