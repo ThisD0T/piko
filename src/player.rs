@@ -173,12 +173,12 @@ fn camera_follow(
     camera_transform.translation[2] = 600.0;
 }
 
-pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>) {
+pub fn respawn_player(mut commands: &mut Commands, ascii: &mut Res<AsciiSheet>, colours: &Res<ColourScheme>) {
     let player = spawn_ascii_sprite(
         &mut commands,
         &ascii,
         3,
-        Color::rgb(0.1, 0.7, 0.4),
+        colours.colour_1,
         Vec3::new(0.0, 0.0, 0.0),
         Vec2::splat(TILE_SIZE * 0.98),
     );

@@ -41,6 +41,7 @@ pub fn generate_colourscheme(commands: &mut Commands) {
         hsla[0] -= 360.0
     }
     let colour_1 = Color::hsla(hsla[0], hsla[1], hsla[2], hsla[3]);
+    println!("hsla: {}, {}, {}, {}", hsla[0], hsla[1], hsla[2], hsla[3]);
     hsla[0] += 48.0;
     if hsla[0] > 360.0 {
         hsla[0] -= 360.0

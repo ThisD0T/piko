@@ -4,9 +4,6 @@ use bevy::{
 
 mod lib;
 
-mod debug;
-use crate::debug::DebugPlugin;
-
 mod components;
 use components::{CameraFlag, MainMenuFlag, Manager};
 
@@ -57,7 +54,6 @@ fn main() {
         .add_startup_system(main_menu_setup)
         .add_system_set(SystemSet::on_update(GameState::OpeningMenu).with_system(main_menu))
         .add_plugins(DefaultPlugins)
-        .add_plugin(DebugPlugin)
         .add_plugin(ColourPlugin)
         .add_plugin(EnemyPlugin)
         .add_plugin(AsciiPlugin)
@@ -179,10 +175,10 @@ fn make_new_stage(
         &mut commands,
         &mut ascii,
         &mut assets,
-        colours,
+        &colours,
         &mut manager_query,
     );
-    respawn_player(&mut commands, &mut ascii);
+    respawn_player(&mut commands, &mut ascii, &colours);
     spawn_camera(commands);
 }
 

@@ -57,7 +57,7 @@ fn first_map_gen(
         &mut commands,
         &mut ascii,
         &mut assets,
-        colours,
+        &colours,
         &mut manager_query,
     );
 }
@@ -67,7 +67,7 @@ pub fn generate_map(
     mut commands: &mut Commands,
     mut ascii: &mut Res<AsciiSheet>,
     mut assets: &mut Res<AssetServer>,
-    colours: Res<ColourScheme>,
+    colours: &Res<ColourScheme>,
     mut manager_query: &mut Query<&mut Manager, With<Manager>>,
     // manager_query: Query<&Manager, With<Manager>>,
 ) {
@@ -95,10 +95,6 @@ pub fn generate_map(
             Ok(path) => map_block_ids.push(path.display().to_string()),
             Err(e) => println!("{}", e),
         }
-    }
-
-    for id in map_block_ids.iter() {
-        println!("{}", id);
     }
 
     // doing this in columns not rows
@@ -146,7 +142,7 @@ pub fn generate_map(
         &mut ascii,
         map_blocks,
         map_size,
-        colours,
+        &colours,
         &mut manager_query,
     );
 }
@@ -156,7 +152,7 @@ fn draw_map_blocks(
     ascii: &mut Res<AsciiSheet>,
     map_blocks: Vec<MapBlock>,
     map_size: i32,
-    colours: Res<ColourScheme>,
+    colours: &Res<ColourScheme>,
     manager_query: &mut Query<&mut Manager, With<Manager>>,
     // manager_query: &mut Query<&Manager, With<Manager>>,
 ) {
